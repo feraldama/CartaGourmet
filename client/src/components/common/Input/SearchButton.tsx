@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import ActionButton from "../Button/ActionButton"; // Ajustá la ruta si es distinta
 
 interface SearchButtonProps {
@@ -10,6 +10,10 @@ interface SearchButtonProps {
   className?: string;
   hideButton?: boolean;
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Milisegundos de espera para disparar la búsqueda al escribir. 0 lo desactiva. */
+  debounceMs?: number;
+  /** Enfoca el input automáticamente al montarse el componente. */
+  autoFocus?: boolean;
 }
 
 export default function SearchButton({
@@ -20,7 +24,34 @@ export default function SearchButton({
   placeholder = "Buscar...",
   hideButton = false,
   inputRef,
+  debounceMs = 400,
+  autoFocus = true,
 }: SearchButtonProps) {
+  // Ref interno usado para el autofocus cuando el consumidor no provee uno propio.
+  const internalRef = useRef<HTMLInputElement>(null);
+  const resolvedRef = inputRef ?? internalRef;
+
+  // Enfocar el buscador al renderizar la página.
+  useEffect(() => {
+    if (autoFocus) resolvedRef.current?.focus();
+    // Solo al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Debounce: dispara la búsqueda automáticamente al dejar de escribir,
+  // sin necesidad de presionar Enter ni el botón "Buscar".
+  const submitRef = useRef(onSearchSubmit);
+  submitRef.current = onSearchSubmit;
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (debounceMs <= 0) return;
+    const timer = setTimeout(() => submitRef.current(), debounceMs);
+    return () => clearTimeout(timer);
+  }, [searchTerm, debounceMs]);
+
   return (
     <div className="flex items-center flex-row flex-wrap py-4 bg-white sm:max-w-full lg:max-w-xl gap-2">
       <div className="relative flex-1 min-w-0">
@@ -67,7 +98,7 @@ export default function SearchButton({
               onKeyPress(e);
             }
           }}
-          ref={inputRef}
+          ref={resolvedRef}
         />
       </div>
       {!hideButton && (

@@ -7,7 +7,9 @@ export const formatMiles = (value: number | string): string => {
   };
   const commission = parseToNumber(value);
   const roundedCommission = Math.round(commission);
-  return new Intl.NumberFormat("es-ES", {
+  // de-DE usa el mismo separador de miles "." que es-ES, pero SÍ agrupa
+  // los números de 4 dígitos (es-ES los deja sin separador: 5500 -> "5500").
+  return new Intl.NumberFormat("de-DE", {
     minimumFractionDigits: 0,
     useGrouping: true,
   }).format(roundedCommission);
@@ -26,7 +28,7 @@ export const formatMilesWithDecimals = (value: number | string): string => {
     return value;
   };
   const commission = parseToNumber(value);
-  return new Intl.NumberFormat("es-ES", {
+  return new Intl.NumberFormat("de-DE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     useGrouping: true,

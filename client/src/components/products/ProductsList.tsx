@@ -306,7 +306,7 @@ export default function ProductsList({
       key: "ProductoPrecioVenta",
       label: "Precio Venta",
       render: (item: Producto) =>
-        `Gs. ${item.ProductoPrecioVenta?.toLocaleString()}`,
+        `Gs. ${formatMiles(item.ProductoPrecioVenta ?? 0)}`,
     },
     {
       key: "ProductoStock",

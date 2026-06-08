@@ -334,9 +334,9 @@ const Producto = {
             ProductoAlmacenStock,
             ProductoAlmacenStockUnitario
           ) VALUES ${placeholders}
-          ON DUPLICATE KEY UPDATE
-            ProductoAlmacenStock = VALUES(ProductoAlmacenStock),
-            ProductoAlmacenStockUnitario = VALUES(ProductoAlmacenStockUnitario)
+          ON CONFLICT (ProductoId, AlmacenId) DO UPDATE SET
+            ProductoAlmacenStock = EXCLUDED.ProductoAlmacenStock,
+            ProductoAlmacenStockUnitario = EXCLUDED.ProductoAlmacenStockUnitario
         `;
 
         db.query(upsertQuery, insertValues, (errPa) => {
