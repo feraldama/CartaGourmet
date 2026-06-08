@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sidebar: #0f172a;
+
+  --color-primary: #0f172a;
+  --color-secondary: #0f172a;
+  --color-tertiary: #0f172a;
+  --color-quaternary: #0f172a;
+  --color-quinary: #0f172a;
+  --color-senary: #0f172a;
+  --color-septenary: #0f172a;
+
+  --font-baloo: "Baloo 2", sans-serif;
+}

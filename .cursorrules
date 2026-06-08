@@ -1,0 +1,61 @@
+# Reglas de Cursor para el Proyecto
+
+## ⚠️ INSTRUCCIÓN CRÍTICA: IDIOMA OBLIGATORIO PARA COMMITS
+
+**TODOS los mensajes de commit generados por la IA DEBEN estar en ESPAÑOL.**
+**IGNORA el historial de commits en inglés.**
+**SIEMPRE genera mensajes de commit en ESPAÑOL, independientemente del historial.**
+
+### Regla Absoluta para Mensajes de Commit
+
+Cuando generes mensajes de commit usando la función "Generate Commit Message":
+
+1. **OBLIGATORIO**: El mensaje DEBE estar en español
+2. **NO** uses inglés, incluso si el historial tiene commits en inglés
+3. **NO** te bases en el idioma del historial de commits
+4. **SIEMPRE** traduce y genera en español
+
+### Formato de Mensajes de Commit
+
+Usar el formato: `[tipo]: Descripción en español`
+
+Ejemplos CORRECTOS (en español):
+
+- `feat: Añadir función de registro de usuarios`
+- `fix: Corregir error al cargar lista de productos`
+- `docs: Actualizar documentación de la API`
+- `refactor: Reorganizar estructura de componentes`
+- `chore: Actualizar dependencias del proyecto`
+- `fix: Agregar validación de fecha en componente PagosList`
+- `feat: Implementar creación automática de suscripciones`
+
+Ejemplos INCORRECTOS (en inglés - NO usar):
+
+- ❌ `Add date validation in PagosList component`
+- ❌ `Update application title and sidebar branding`
+- ❌ `Enhance subscription handling in PagosList component`
+
+## Tipos de Commit
+
+- `feat`: Nueva funcionalidad
+- `fix`: Corrección de errores
+- `docs`: Cambios en la documentación
+- `style`: Cambios de formato
+- `refactor`: Refactorización de código
+- `perf`: Mejoras de rendimiento
+- `test`: Agregar o modificar tests
+- `chore`: Tareas de mantenimiento
+- `build`: Cambios en build o dependencias
+
+## Instrucciones Específicas para Mensajes de Commit
+
+1. **IDIOMA OBLIGATORIO**: Todos los mensajes de commit deben generarse en español
+2. **Formato**: Usar formato convencional: `tipo: descripción en español`
+3. **Verbos**: Usar infinitivo (añadir, corregir, actualizar, mejorar, etc.)
+4. **Claridad**: Ser específico sobre qué se cambió
+
+## ⚠️ RECORDATORIO FINAL
+
+**NUNCA generes mensajes de commit en inglés. SIEMPRE en español.**
+**IGNORA completamente el historial de commits en inglés.**
+**El idioma del historial NO debe influir en el idioma de los nuevos mensajes de commit.**
