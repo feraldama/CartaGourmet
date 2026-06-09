@@ -5,7 +5,8 @@ import { usePermiso } from "../../hooks/usePermiso";
 import { PermissionDenied } from "../../components/common/ui";
 import Swal from "sweetalert2";
 import { getAllClientesSinPaginacion } from "../../services/clientes.service";
-import { formatCurrency, formatMiles } from "../../utils/utils";
+import { formatCurrency } from "../../utils/utils";
+import MoneyInput from "../../components/common/Input/MoneyInput";
 import { getVentasPendientesPorCliente } from "../../services/venta.service";
 import { useAuth } from "../../contexts/useAuth";
 import { getEstadoAperturaPorUsuario } from "../../services/registrodiariocaja.service";
@@ -274,16 +275,9 @@ const CreditoPagosPage = () => {
               <label className="block text-sm font-medium text-text">
                 Monto a Cobrar
               </label>
-              <input
-                type="text"
-                value={montoPago ? formatMiles(montoPago) : ""}
-                onChange={(e) => {
-                  const raw = e.target.value
-                    .replace(/\./g, "")
-                    .replace(/\s/g, "");
-                  const num = Number(raw);
-                  if (!isNaN(num)) setMontoPago(num);
-                }}
+              <MoneyInput
+                value={montoPago}
+                onValueChange={(v) => setMontoPago(v)}
                 className="mt-1 block w-full h-10 rounded-md border-border shadow-sm focus:border-green-500 focus:ring-green-500"
                 placeholder="0"
               />

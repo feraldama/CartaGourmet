@@ -20,6 +20,7 @@ import {
 import ProveedorModal from "../../components/common/ProveedorModal";
 import { useNavigate } from "react-router-dom";
 import ActionButton from "../../components/common/Button/ActionButton";
+import MoneyInput from "../../components/common/Input/MoneyInput";
 import { formatMiles } from "../../utils/utils";
 import { getEstadoAperturaPorUsuario } from "../../services/registrodiariocaja.service";
 import { getCajaById } from "../../services/cajas.service";
@@ -719,15 +720,11 @@ export default function Compras() {
                       </div>
                     </td>
                     <td className="py-3 pr-6 align-middle">
-                      <input
-                        type="text"
-                        value={
-                          p.precioTotal > 0 ? formatMiles(p.precioTotal) : ""
+                      <MoneyInput
+                        value={p.precioTotal}
+                        onValueChange={(v) =>
+                          cambiarPrecioTotal(p.cartItemId, v)
                         }
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^\d]/g, "");
-                          cambiarPrecioTotal(p.cartItemId, Number(value));
-                        }}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
                         className="w-24 p-2 border border-border rounded text-center"
@@ -785,13 +782,9 @@ export default function Compras() {
               <label className="block text-sm font-medium text-text mb-1">
                 Monto Entregado
               </label>
-              <input
-                type="text"
-                value={compraEntrega > 0 ? formatMiles(compraEntrega) : ""}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^\d]/g, "");
-                  setCompraEntrega(Number(value));
-                }}
+              <MoneyInput
+                value={compraEntrega}
+                onValueChange={(v) => setCompraEntrega(v)}
                 className="w-full p-2 border border-border rounded-lg"
                 placeholder="0"
               />

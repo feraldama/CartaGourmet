@@ -7,6 +7,8 @@ import { getEstadoAperturaPorUsuario } from "../../services/registrodiariocaja.s
 import { getCajaById } from "../../services/cajas.service";
 import Swal from "sweetalert2";
 import { formatMiles } from "../../utils/utils";
+import ModalDialog from "./ModalDialog";
+import Button from "./Button/Button";
 
 interface TipoGasto {
   TipoGastoId: number;
@@ -104,23 +106,25 @@ const PagoModal: React.FC<PagoModalProps> = ({
     }
   };
 
-  if (!show) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black opacity-50" />
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
-        <button
-          className="absolute top-4 right-4 text-text-subtle hover:text-text-muted text-2xl"
-          onClick={handleClose}
-        >
-          &times;
-        </button>
-        <h2 className="text-2xl font-semibold text-text-strong mb-4">
-          Nuevo Pago
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 mb-4">
+    <ModalDialog
+      open={show}
+      onClose={handleClose}
+      title="Nuevo Pago"
+      size="md"
+      footer={
+        <>
+          <Button variant="secondary" type="button" onClick={handleClose}>
+            Cancelar
+          </Button>
+          <Button variant="primary" type="submit" form="pago-form">
+            Guardar
+          </Button>
+        </>
+      }
+    >
+      <form id="pago-form" onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1">
                 Fecha
@@ -203,24 +207,8 @@ const PagoModal: React.FC<PagoModalProps> = ({
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button
-              type="submit"
-              className="bg-brand-700 text-white px-4 py-2 rounded hover:bg-brand-800 transition"
-            >
-              Guardar
-            </button>
-            <button
-              type="button"
-              className="bg-border text-text px-4 py-2 rounded hover:bg-gray-300 transition"
-              onClick={handleClose}
-            >
-              Cancelar
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 

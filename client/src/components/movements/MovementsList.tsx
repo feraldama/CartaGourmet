@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
+import Button from "../common/Button/Button";
+import ModalDialog from "../common/ModalDialog";
 import DataTable from "../common/Table/DataTable";
 import { PlusIcon, FunnelIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { RegistroFilters } from "../../services/registros.service";
@@ -190,14 +192,6 @@ export default function MovementsList({
       label: "Usuario",
     },
   ];
-
-  const handleBackdropClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
-  ) => {
-    if (event.target === event.currentTarget) {
-      onCloseModal();
-    }
-  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -434,28 +428,23 @@ export default function MovementsList({
       />
 
       {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={handleBackdropClick}
+        <ModalDialog
+          open={isModalOpen}
+          onClose={onCloseModal}
+          title={currentMovement ? "Actualizar registro" : "Crear registro"}
+          footer={
+            <>
+              <Button variant="secondary" type="button" onClick={onCloseModal}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" form="movimiento-form">
+                {currentMovement ? "Actualizar" : "Crear"}
+              </Button>
+            </>
+          }
         >
-          <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative w-full max-w-2xl max-h-full z-10">
-            <form
-              onSubmit={handleSubmit}
-              className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
-            >
-              <ActionButton
-                label={currentMovement ? "Actualizar" : "Crear"}
-                type="submit"
-              />
-              <ActionButton
-                label="Cancelar"
-                className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
-                onClick={onCloseModal}
-              />
-            </form>
-          </div>
-        </div>
+          <form id="movimiento-form" onSubmit={handleSubmit} />
+        </ModalDialog>
       )}
     </>
   );

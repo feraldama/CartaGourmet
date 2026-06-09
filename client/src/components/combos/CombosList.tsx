@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
+import ModalDialog from "../common/ModalDialog";
+import Button from "../common/Button/Button";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { formatMiles } from "../../utils/utils";
+import MoneyInput from "../common/Input/MoneyInput";
 
 interface Combo {
   id: string | number;
@@ -210,47 +213,29 @@ export default function CombosList({
         onDelete={onDelete}
         emptyMessage="No se encontraron combos"
       />
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black opacity-50"
-            onClick={onCloseModal}
-          />
-          <div className="relative w-full max-w-2xl max-h-full z-10">
-            <form
-              onSubmit={handleSubmit}
-              className="relative bg-white rounded-lg shadow"
-            >
-              <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-text">
-                  {currentCombo
-                    ? `Editar combo: ${currentCombo.ComboDescripcion}`
-                    : "Crear nuevo combo"}
-                </h3>
-                <button
-                  type="button"
-                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                  onClick={onCloseModal}
-                >
-                  <svg
-                    className="w-3 h-3"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 14 14"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-6 gap-6">
+      <ModalDialog
+        open={isModalOpen}
+        onClose={onCloseModal}
+        size="2xl"
+        title={
+          currentCombo
+            ? `Editar combo: ${currentCombo.ComboDescripcion}`
+            : "Crear nuevo combo"
+        }
+        footer={
+          <>
+            <Button variant="secondary" type="button" onClick={onCloseModal}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" form="combo-form">
+              {currentCombo ? "Actualizar" : "Crear"}
+            </Button>
+          </>
+        }
+      >
+        <form id="combo-form" onSubmit={handleSubmit}>
+          <div className="space-y-6">
+            <div className="grid grid-cols-6 gap-6">
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="ComboDescripcion"
@@ -358,43 +343,23 @@ export default function CombosList({
                     >
                       Precio
                     </label>
-                    <input
-                      type="text"
+                    <MoneyInput
                       name="ComboPrecio"
                       id="ComboPrecio"
-                      value={
-                        formData.ComboPrecio
-                          ? formatMiles(formData.ComboPrecio)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\./g, "");
+                      value={formData.ComboPrecio}
+                      onValueChange={(v) =>
                         setFormData((prev) => ({
                           ...prev,
-                          ComboPrecio: Number(raw),
-                        }));
-                      }}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                          ComboPrecio: v,
+                        }))
+                      }
                       required
                     />
                   </div>
-                </div>
-              </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
-                <ActionButton
-                  label={currentCombo ? "Actualizar" : "Crear"}
-                  type="submit"
-                />
-                <ActionButton
-                  label="Cancelar"
-                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
-                  onClick={onCloseModal}
-                />
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </ModalDialog>
     </>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
+import ModalDialog from "../common/ModalDialog";
+import Button from "../common/Button/Button";
 import DataTable from "../common/Table/DataTable";
 import {
   PlusIcon,
@@ -124,12 +126,6 @@ export default function TiposGastoList({
     onSubmit(formData);
   };
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onCloseModal();
-    }
-  };
-
   const columns = [
     { key: "TipoGastoId", label: "ID" },
     { key: "TipoGastoDescripcion", label: "Descripción" },
@@ -172,65 +168,46 @@ export default function TiposGastoList({
         onSort={onSort}
       />
       {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={handleBackdropClick}
+        <ModalDialog
+          open={isModalOpen}
+          onClose={onCloseModal}
+          title={
+            currentTipoGasto
+              ? `Editar tipo de gasto: ${currentTipoGasto.TipoGastoDescripcion}`
+              : "Crear nuevo tipo de gasto"
+          }
+          footer={
+            <>
+              <Button variant="secondary" type="button" onClick={onCloseModal}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" form="tipogasto-form">
+                {currentTipoGasto ? "Actualizar" : "Crear"}
+              </Button>
+            </>
+          }
         >
-          <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative w-full max-w-2xl max-h-full z-10">
-            <form
-              onSubmit={handleSubmit}
-              className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-text">
-                  {currentTipoGasto
-                    ? `Editar tipo de gasto: ${currentTipoGasto.TipoGastoDescripcion}`
-                    : "Crear nuevo tipo de gasto"}
-                </h3>
-                <button
-                  type="button"
-                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                  onClick={onCloseModal}
+          <form id="tipogasto-form" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-6 gap-6">
+              <div className="col-span-6 sm:col-span-4">
+                <label
+                  htmlFor="TipoGastoDescripcion"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
-                  <svg
-                    className="w-3 h-3"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 14 14"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                    />
-                  </svg>
-                </button>
+                  Descripción
+                </label>
+                <input
+                  type="text"
+                  name="TipoGastoDescripcion"
+                  id="TipoGastoDescripcion"
+                  value={formData.TipoGastoDescripcion}
+                  onChange={handleInputChange}
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                  required
+                />
               </div>
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-6 gap-6">
-                  <div className="col-span-6 sm:col-span-4">
-                    <label
-                      htmlFor="TipoGastoDescripcion"
-                      className="block mb-2 text-sm font-medium text-text"
-                    >
-                      Descripción
-                    </label>
-                    <input
-                      type="text"
-                      name="TipoGastoDescripcion"
-                      id="TipoGastoDescripcion"
-                      value={formData.TipoGastoDescripcion}
-                      onChange={handleInputChange}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
-                      required
-                    />
-                  </div>
-                </div>
-                {/* Detalle de grupos de gasto asociados */}
+            </div>
+            {/* Detalle de grupos de gasto asociados */}
                 {currentTipoGasto && (
                   <div className="mt-6">
                     <h4 className="font-semibold mb-2 text-text-strong text-base">
@@ -459,21 +436,8 @@ export default function TiposGastoList({
                     )}
                   </div>
                 )}
-              </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
-                <ActionButton
-                  label={currentTipoGasto ? "Actualizar" : "Crear"}
-                  type="submit"
-                />
-                <ActionButton
-                  label="Cancelar"
-                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10 cursor-pointer"
-                  onClick={onCloseModal}
-                />
-              </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </ModalDialog>
       )}
     </>
   );

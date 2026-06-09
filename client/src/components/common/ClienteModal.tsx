@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import ClienteFormModal from "./ClienteFormModal";
 import type { Cliente } from "./ClienteFormModal";
-import { Button, TextInput, Badge } from "./ui";
+import { TextInput, Badge } from "./ui";
+import ModalDialog from "./ModalDialog";
+import Button from "./Button/Button";
 import { formatMiles } from "../../utils/utils";
 
 interface ClienteModalProps {
@@ -59,32 +61,26 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
     }
   };
 
-  if (!show) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black opacity-50" />
-      <div className="bg-surface rounded-lg shadow-modal w-full max-w-4xl max-h-[90vh] p-6 relative flex flex-col">
-        <button
-          aria-label="Cerrar"
-          className="absolute top-4 right-4 text-text-subtle hover:text-text transition-colors duration-150 cursor-pointer"
-          onClick={onClose}
-        >
-          <XMarkIcon className="w-5 h-5" />
-        </button>
-        <div className="flex justify-between items-center mb-4 pr-8">
-          <h2 className="text-xl font-semibold text-text">Buscar Cliente</h2>
-          {onCreateCliente && (
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={PlusIcon}
-              onClick={() => setShowCreateModal(true)}
-            >
-              Nuevo Cliente
-            </Button>
-          )}
-        </div>
+    <ModalDialog
+      open={show}
+      onClose={onClose}
+      title="Buscar Cliente"
+      size="4xl"
+      headerActions={
+        onCreateCliente && (
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={PlusIcon}
+            onClick={() => setShowCreateModal(true)}
+          >
+            Nuevo Cliente
+          </Button>
+        )
+      }
+    >
+      <div>
         <div className="bg-surface-sunken rounded-md p-4 mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <TextInput
@@ -231,7 +227,7 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
           currentUserId={currentUserId}
         />
       </div>
-    </div>
+    </ModalDialog>
   );
 };
 

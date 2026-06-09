@@ -10,7 +10,10 @@ import {
 } from "@heroicons/react/24/outline";
 import { getLocales } from "../../services/locales.service";
 import { getAlmacenes } from "../../services/almacenes.service";
-import { formatMiles, formatMilesWithDecimals } from "../../utils/utils";
+import ModalDialog from "../common/ModalDialog";
+import Button from "../common/Button/Button";
+import { formatMiles } from "../../utils/utils";
+import MoneyInput from "../common/Input/MoneyInput";
 import type { ProductoFilters } from "../../services/productos.service";
 
 export interface ProductoAlmacenRow {
@@ -167,7 +170,6 @@ export default function ProductsList({
     []
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [precioCostoFocused, setPrecioCostoFocused] = useState(false);
 
   useEffect(() => {
     getAlmacenes(1, 200).then((res) => {
@@ -233,7 +235,6 @@ export default function ProductsList({
         LocalId: 1,
       });
     }
-    setPrecioCostoFocused(false); // Resetear el estado de foco cuando cambia el producto
     getLocales(1, 200).then((res) => {
       setLocales(res.data || []);
     });
@@ -620,52 +621,28 @@ export default function ProductsList({
       />
 
       {/* Modal para crear/editar */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onCloseModal();
-          }}
-        >
-          {/* Fondo opacado */}
-          <div className="absolute inset-0 bg-black opacity-50" />
-
-          <div className="relative w-full max-w-2xl max-h-full z-10">
-            <form
-              onSubmit={handleSubmit}
-              className="relative bg-white rounded-lg shadow"
-            >
-              <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-text">
-                  {currentProduct
-                    ? `Editar producto: ${currentProduct.ProductoNombre}`
-                    : "Crear nuevo producto"}
-                </h3>
-                <button
-                  type="button"
-                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                  onClick={onCloseModal}
-                >
-                  <svg
-                    className="w-3 h-3"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 14 14"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-                <div className="grid grid-cols-6 gap-6">
+      <ModalDialog
+        open={isModalOpen}
+        onClose={onCloseModal}
+        title={
+          currentProduct
+            ? `Editar producto: ${currentProduct.ProductoNombre}`
+            : "Crear nuevo producto"
+        }
+        size="4xl"
+        footer={
+          <>
+            <Button variant="secondary" type="button" onClick={onCloseModal}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" form="producto-form">
+              {currentProduct ? "Actualizar" : "Crear"}
+            </Button>
+          </>
+        }
+      >
+        <form id="producto-form" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-6 gap-6">
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="ProductoCodigo"
@@ -707,24 +684,16 @@ export default function ProductsList({
                     >
                       Precio Minorista
                     </label>
-                    <input
-                      type="text"
+                    <MoneyInput
                       name="ProductoPrecioVenta"
                       id="ProductoPrecioVenta"
-                      value={
-                        formData.ProductoPrecioVenta
-                          ? formatMiles(formData.ProductoPrecioVenta)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        // Eliminar puntos y formatear a número
-                        const raw = e.target.value.replace(/\./g, "");
+                      value={formData.ProductoPrecioVenta}
+                      onValueChange={(v) =>
                         setFormData((prev) => ({
                           ...prev,
-                          ProductoPrecioVenta: Number(raw),
-                        }));
-                      }}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                          ProductoPrecioVenta: v,
+                        }))
+                      }
                       required
                     />
                   </div>
@@ -736,23 +705,16 @@ export default function ProductsList({
                     >
                       Precio Mayorista
                     </label>
-                    <input
-                      type="text"
+                    <MoneyInput
                       name="ProductoPrecioVentaMayorista"
                       id="ProductoPrecioVentaMayorista"
-                      value={
-                        formData.ProductoPrecioVentaMayorista
-                          ? formatMiles(formData.ProductoPrecioVentaMayorista)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\./g, "");
+                      value={formData.ProductoPrecioVentaMayorista}
+                      onValueChange={(v) =>
                         setFormData((prev) => ({
                           ...prev,
-                          ProductoPrecioVentaMayorista: Number(raw),
-                        }));
-                      }}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                          ProductoPrecioVentaMayorista: v,
+                        }))
+                      }
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
@@ -762,13 +724,16 @@ export default function ProductsList({
                     >
                       Precio Unitario
                     </label>
-                    <input
-                      type="number"
+                    <MoneyInput
                       name="ProductoPrecioUnitario"
                       id="ProductoPrecioUnitario"
-                      value={formData.ProductoPrecioUnitario || ""}
-                      onChange={handleInputChange}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                      value={formData.ProductoPrecioUnitario}
+                      onValueChange={(v) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ProductoPrecioUnitario: v,
+                        }))
+                      }
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
@@ -778,43 +743,17 @@ export default function ProductsList({
                     >
                       Precio Costo
                     </label>
-                    <input
-                      type="text"
+                    <MoneyInput
                       name="ProductoPrecioPromedio"
                       id="ProductoPrecioPromedio"
-                      value={
-                        precioCostoFocused
-                          ? formData.ProductoPrecioPromedio
-                            ? formData.ProductoPrecioPromedio.toString()
-                            : ""
-                          : formData.ProductoPrecioPromedio
-                          ? formatMilesWithDecimals(
-                              formData.ProductoPrecioPromedio
-                            )
-                          : ""
-                      }
-                      onFocus={() => setPrecioCostoFocused(true)}
-                      onBlur={() => setPrecioCostoFocused(false)}
-                      onChange={(e) => {
-                        // Permitir escribir números y punto decimal
-                        let raw = e.target.value.replace(/[^\d.]/g, "");
-
-                        // Asegurar que solo haya un punto decimal
-                        const parts = raw.split(".");
-                        if (parts.length > 2) {
-                          raw = parts[0] + "." + parts.slice(1).join("");
-                        }
-
-                        const numValue =
-                          raw === "" || raw === "." ? 0 : parseFloat(raw);
+                      decimals
+                      value={formData.ProductoPrecioPromedio}
+                      onValueChange={(v) =>
                         setFormData((prev) => ({
                           ...prev,
-                          ProductoPrecioPromedio: isNaN(numValue)
-                            ? 0
-                            : numValue,
-                        }));
-                      }}
-                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                          ProductoPrecioPromedio: v,
+                        }))
+                      }
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
@@ -1092,23 +1031,8 @@ export default function ProductsList({
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
-                <ActionButton
-                  label={currentProduct ? "Actualizar" : "Crear"}
-                  type="submit"
-                />
-                <ActionButton
-                  label="Cancelar"
-                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
-                  onClick={onCloseModal}
-                />
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        </form>
+      </ModalDialog>
     </>
   );
 }

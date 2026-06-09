@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCajas } from "../../services/cajas.service";
 import ActionButton from "../../components/common/Button/ActionButton";
+import MoneyInput from "../../components/common/Input/MoneyInput";
 import { LoadingState, PermissionDenied } from "../../components/common/ui";
 import { usePermiso } from "../../hooks/usePermiso";
 import {
@@ -441,18 +442,9 @@ export default function AperturaCierreCajaPage() {
             <label className="block mb-2 text-sm font-medium text-text">
               {tipo === "1" ? "Monto de cierre" : "Monto de apertura"}
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
-              value={monto ? formatMiles(monto) : ""}
-              onChange={(e) => {
-                const raw = e.target.value
-                  .replace(/\./g, "")
-                  .replace(/\s/g, "");
-                const num = Number(raw);
-                if (!isNaN(num)) setMonto(num);
-              }}
+            <MoneyInput
+              value={monto}
+              onValueChange={(v) => setMonto(v)}
               min={0}
               required
             />

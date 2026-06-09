@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
 import type { Proveedor } from "../../types";
+import ModalDialog from "./ModalDialog";
+import Button from "./Button/Button";
 
 interface CreateProveedorData {
   ProveedorRUC: string;
@@ -68,31 +70,25 @@ const ProveedorModal: React.FC<ProveedorModalProps> = ({
     }
   }, [show, showCreateForm]);
 
-  if (!show) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black opacity-50" />
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl p-6 relative">
-        <button
-          className="absolute top-4 right-4 text-text-subtle hover:text-text-muted text-2xl cursor-pointer"
-          onClick={onClose}
-        >
-          &times;
-        </button>
-        <div className="flex justify-between items-center mb-4 pr-8">
-          <h2 className="text-2xl font-semibold text-text-strong">
-            Seleccionar Proveedor
-          </h2>
-          <button
+    <ModalDialog
+      open={show}
+      onClose={onClose}
+      title="Seleccionar Proveedor"
+      size="4xl"
+      headerActions={
+        !showCreateForm ? (
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={PlusIcon}
             onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
           >
-            <PlusIcon className="w-4 h-4" />
             Crear Nuevo Proveedor
-          </button>
-        </div>
-
+          </Button>
+        ) : undefined
+      }
+    >
         {!showCreateForm ? (
           <>
             <div className="mb-4">
@@ -106,7 +102,7 @@ const ProveedorModal: React.FC<ProveedorModalProps> = ({
               />
             </div>
 
-            <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-2">
               {filteredProveedores.map((proveedor) => (
                 <div
                   key={proveedor.ProveedorId}
@@ -202,24 +198,20 @@ const ProveedorModal: React.FC<ProveedorModalProps> = ({
             </div>
 
             <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-success-700 text-white px-4 py-2 rounded-lg hover:bg-success-800"
-              >
+              <Button variant="success" type="submit">
                 Crear
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
               >
                 Cancelar
-              </button>
+              </Button>
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 

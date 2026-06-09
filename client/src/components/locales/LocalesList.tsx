@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
+import Button from "../common/Button/Button";
+import ModalDialog from "../common/ModalDialog";
 import DataTable from "../common/Table/DataTable";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { formatMiles } from "../../utils/utils";
@@ -94,12 +96,6 @@ export default function LocalesList({
     onSubmit(formData);
   };
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onCloseModal();
-    }
-  };
-
   const columns = [
     { key: "LocalId", label: "ID" },
     { key: "LocalNombre", label: "Nombre" },
@@ -145,46 +141,27 @@ export default function LocalesList({
         onSort={onSort}
       />
       {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={handleBackdropClick}
+        <ModalDialog
+          open={isModalOpen}
+          onClose={onCloseModal}
+          title={
+            currentLocal
+              ? `Editar local: ${currentLocal.LocalId}`
+              : "Crear nuevo local"
+          }
+          footer={
+            <>
+              <Button variant="secondary" type="button" onClick={onCloseModal}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" form="local-form">
+                {currentLocal ? "Actualizar" : "Crear"}
+              </Button>
+            </>
+          }
         >
-          <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative w-full max-w-2xl max-h-full z-10">
-            <form
-              onSubmit={handleSubmit}
-              className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-text">
-                  {currentLocal
-                    ? `Editar local: ${currentLocal.LocalId}`
-                    : "Crear nuevo local"}
-                </h3>
-                <button
-                  type="button"
-                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                  onClick={onCloseModal}
-                >
-                  <svg
-                    className="w-3 h-3"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 14 14"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-6 gap-6">
+          <form id="local-form" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-6 gap-6">
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="LocalNombre"
@@ -258,22 +235,9 @@ export default function LocalesList({
                       className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     />
                   </div>
-                </div>
-              </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
-                <ActionButton
-                  label={currentLocal ? "Actualizar" : "Crear"}
-                  type="submit"
-                />
-                <ActionButton
-                  label="Cancelar"
-                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
-                  onClick={onCloseModal}
-                />
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </ModalDialog>
       )}
     </>
   );
