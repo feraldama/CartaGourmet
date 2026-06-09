@@ -9,7 +9,16 @@ import ProductCard from "../../components/products/ProductCard";
 import { useAuth } from "../../contexts/useAuth";
 import PaymentModal from "../../components/common/PaymentModal";
 import Swal from "sweetalert2";
-import { confirmarVenta, devolverVenta } from "../../services/venta.service";
+import {
+  confirmarVenta,
+  devolverVenta,
+  getProductosByVentaId,
+} from "../../services/venta.service";
+import {
+  generarComprobanteHTML,
+  imprimirComprobante,
+  type DocumentoTipo,
+} from "../../utils/comprobante";
 import { usePermiso } from "../../hooks/usePermiso";
 import { PermissionDenied } from "../../components/common/ui";
 import { resolveProductoImagen } from "../../utils/productImage";
@@ -103,6 +112,9 @@ export default function Sales() {
   const [voucher, setVoucher] = useState(0);
   const [ventaNroPOS, setVentaNroPOS] = useState("");
   const [printTicket, setPrintTicket] = useState(false);
+  // Tipo de comprobante a emitir/imprimir al confirmar la venta. Por defecto
+  // Factura; se puede cambiar a Nota de crédito en el modal de pago.
+  const [documentoTipo, setDocumentoTipo] = useState<DocumentoTipo>("FA");
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] =
@@ -479,6 +491,39 @@ export default function Sales() {
     return cantidadCombos * comboPrecio + cantidadRestante * precioUnitario;
   }
 
+  // Carga los productos persistidos de la venta y abre la impresión del
+  // comprobante (formulario preimpreso, 2 copias: cliente y empresa).
+  const imprimirComprobanteVenta = async (
+    ventaId: number,
+    totalVenta: number,
+    fechaIso: string,
+    tipo: DocumentoTipo,
+  ) => {
+    try {
+      const productos = await getProductosByVentaId(ventaId);
+      const cliente = clienteSeleccionado;
+      const razonSocial = cliente
+        ? `${cliente.ClienteNombre ?? ""} ${cliente.ClienteApellido ?? ""}`.trim()
+        : "";
+      const html = generarComprobanteHTML(
+        {
+          VentaId: ventaId,
+          VentaFecha: fechaIso,
+          Total: totalVenta,
+          ClienteRazonSocial: razonSocial,
+          ClienteRUC: cliente?.ClienteRUC || "",
+          ClienteTelefono: cliente?.ClienteTelefono || "",
+          ClienteDireccion: cliente?.ClienteDireccion || "",
+        },
+        productos,
+        tipo,
+      );
+      imprimirComprobante(html);
+    } catch (error) {
+      console.error("Error al imprimir el comprobante:", error);
+    }
+  };
+
   const sendRequest = async () => {
     // Hora local del navegador. El parche UTC-4 viejo era para compensar un
     // bug del JVM/Tomcat de GeneXus que sumaba 1h al guardar; ahora vamos a
@@ -537,15 +582,14 @@ export default function Sales() {
           })),
         });
       } else {
-        await confirmarVenta({
+        const respuesta = await confirmarVenta({
           VentaFecha: fechaIso,
           AlmacenOrigenId: Number(user?.LocalId),
           ClienteId: Number(clienteSeleccionado?.ClienteId),
           CajaId: Number(cajaAperturada?.CajaId),
           UsuarioId: String(user?.id ?? ""),
           VentaPagoTipo: "E",
-          VentaNroFactura: 0,
-          VentaTimbrado: 0,
+          VentaDocumentoTipo: documentoTipo,
           VentaNroPOS:
             bancoDebito > 0 || bancoCredito > 0
               ? ventaNroPOS.trim() || "0"
@@ -568,6 +612,18 @@ export default function Sales() {
             ComboPrecio: Number(item.Producto.ComboPrecio),
           })),
         });
+
+        // Impresión automática del comprobante (Factura o Nota de crédito)
+        // sobre el formulario preimpreso, apenas se confirma la venta.
+        const ventaCreada = respuesta?.data;
+        if (ventaCreada?.VentaId) {
+          await imprimirComprobanteVenta(
+            Number(ventaCreada.VentaId),
+            Number(ventaCreada.Total ?? total),
+            fechaIso,
+            documentoTipo
+          );
+        }
       }
       if (printTicket) {
         await generateTicketPDF();
@@ -626,6 +682,7 @@ export default function Sales() {
     setPrintTicket(false);
     setShowModal(false);
     setIsDevolucion(false); // Resetear el checkbox de devolución
+    setDocumentoTipo("FA"); // Volver a Factura por defecto para la próxima venta
   };
 
   const generateTicketPDF = async () => {
@@ -1287,6 +1344,8 @@ export default function Sales() {
         setVoucher={setVoucher}
         ventaNroPOS={ventaNroPOS}
         setVentaNroPOS={setVentaNroPOS}
+        documentoTipo={documentoTipo}
+        setDocumentoTipo={setDocumentoTipo}
       />
     </div>
   );

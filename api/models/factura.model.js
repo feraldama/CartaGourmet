@@ -130,6 +130,10 @@ const Factura = {
   create: (facturaData) => {
     return new Promise((resolve, reject) => {
       const { FacturaTimbrado, FacturaDesde, FacturaHasta } = facturaData;
+      // Tipo de comprobante al que aplica el rango: FA (factura) o NC (nota de
+      // crédito). Cada tipo lleva su propio timbrado y secuencia, por eso las
+      // validaciones de unicidad/solapamiento se acotan por tipo.
+      const tipo = facturaData.FacturaDocumentoTipo === "NC" ? "NC" : "FA";
 
       // Validaciones
       if (!FacturaTimbrado || FacturaTimbrado.toString().length > 8) {
@@ -156,23 +160,25 @@ const Factura = {
         );
       }
 
-      // Verificar si ya existe una factura con el mismo timbrado
+      // Verificar si ya existe un timbrado igual para el mismo tipo
       db.query(
-        "SELECT COUNT(*) as count FROM factura WHERE FacturaTimbrado = ?",
-        [FacturaTimbrado],
+        "SELECT COUNT(*) as count FROM factura WHERE FacturaTimbrado = ? AND FacturaDocumentoTipo = ?",
+        [FacturaTimbrado, tipo],
         (err, results) => {
           if (err) return reject(err);
           if (results[0].count > 0) {
-            return reject(new Error("Ya existe una factura con este timbrado"));
+            return reject(new Error("Ya existe un timbrado igual para este tipo de comprobante"));
           }
 
-          // Verificar si hay superposición de rangos
+          // Verificar si hay superposición de rangos dentro del mismo tipo
           db.query(
-            `SELECT COUNT(*) as count FROM factura 
-             WHERE (FacturaDesde <= ? AND FacturaHasta >= ?) 
-             OR (FacturaDesde <= ? AND FacturaHasta >= ?) 
-             OR (FacturaDesde >= ? AND FacturaHasta <= ?)`,
+            `SELECT COUNT(*) as count FROM factura
+             WHERE FacturaDocumentoTipo = ?
+             AND ((FacturaDesde <= ? AND FacturaHasta >= ?)
+             OR (FacturaDesde <= ? AND FacturaHasta >= ?)
+             OR (FacturaDesde >= ? AND FacturaHasta <= ?))`,
             [
+              tipo,
               FacturaDesde,
               FacturaDesde,
               FacturaHasta,
@@ -184,14 +190,14 @@ const Factura = {
               if (err) return reject(err);
               if (results[0].count > 0) {
                 return reject(
-                  new Error("Existe superposición con el rango de facturas")
+                  new Error("Existe superposición con el rango de otro timbrado del mismo tipo")
                 );
               }
 
-              // Insertar la nueva factura
+              // Insertar el nuevo timbrado
               db.query(
-                "INSERT INTO factura (FacturaTimbrado, FacturaDesde, FacturaHasta) VALUES (?, ?, ?)",
-                [FacturaTimbrado, FacturaDesde, FacturaHasta],
+                "INSERT INTO factura (FacturaTimbrado, FacturaDesde, FacturaHasta, FacturaDocumentoTipo) VALUES (?, ?, ?, ?)",
+                [FacturaTimbrado, FacturaDesde, FacturaHasta, tipo],
                 (err, result) => {
                   if (err) return reject(err);
                   resolve(result.insertId);
@@ -207,6 +213,7 @@ const Factura = {
   update: (id, facturaData) => {
     return new Promise((resolve, reject) => {
       const { FacturaTimbrado, FacturaDesde, FacturaHasta } = facturaData;
+      const tipo = facturaData.FacturaDocumentoTipo === "NC" ? "NC" : "FA";
 
       // Validaciones
       if (!FacturaTimbrado || FacturaTimbrado.toString().length > 8) {
@@ -233,25 +240,27 @@ const Factura = {
         );
       }
 
-      // Verificar si ya existe una factura con el mismo timbrado (excluyendo la actual)
+      // Verificar si ya existe un timbrado igual del mismo tipo (excluyendo el actual)
       db.query(
-        "SELECT COUNT(*) as count FROM factura WHERE FacturaTimbrado = ? AND FacturaId != ?",
-        [FacturaTimbrado, id],
+        "SELECT COUNT(*) as count FROM factura WHERE FacturaTimbrado = ? AND FacturaDocumentoTipo = ? AND FacturaId != ?",
+        [FacturaTimbrado, tipo, id],
         (err, results) => {
           if (err) return reject(err);
           if (results[0].count > 0) {
-            return reject(new Error("Ya existe una factura con este timbrado"));
+            return reject(new Error("Ya existe un timbrado igual para este tipo de comprobante"));
           }
 
-          // Verificar si hay superposición de rangos (excluyendo la actual)
+          // Verificar si hay superposición de rangos del mismo tipo (excluyendo el actual)
           db.query(
-            `SELECT COUNT(*) as count FROM factura 
-             WHERE FacturaId != ? 
-             AND ((FacturaDesde <= ? AND FacturaHasta >= ?) 
-             OR (FacturaDesde <= ? AND FacturaHasta >= ?) 
+            `SELECT COUNT(*) as count FROM factura
+             WHERE FacturaId != ?
+             AND FacturaDocumentoTipo = ?
+             AND ((FacturaDesde <= ? AND FacturaHasta >= ?)
+             OR (FacturaDesde <= ? AND FacturaHasta >= ?)
              OR (FacturaDesde >= ? AND FacturaHasta <= ?))`,
             [
               id,
+              tipo,
               FacturaDesde,
               FacturaDesde,
               FacturaHasta,
@@ -263,14 +272,14 @@ const Factura = {
               if (err) return reject(err);
               if (results[0].count > 0) {
                 return reject(
-                  new Error("Existe superposición con el rango de facturas")
+                  new Error("Existe superposición con el rango de otro timbrado del mismo tipo")
                 );
               }
 
-              // Actualizar la factura
+              // Actualizar el timbrado
               db.query(
-                "UPDATE factura SET FacturaTimbrado = ?, FacturaDesde = ?, FacturaHasta = ? WHERE FacturaId = ?",
-                [FacturaTimbrado, FacturaDesde, FacturaHasta, id],
+                "UPDATE factura SET FacturaTimbrado = ?, FacturaDesde = ?, FacturaHasta = ?, FacturaDocumentoTipo = ? WHERE FacturaId = ?",
+                [FacturaTimbrado, FacturaDesde, FacturaHasta, tipo, id],
                 (err, result) => {
                   if (err) return reject(err);
                   if (result.affectedRows === 0) {

@@ -33,6 +33,7 @@ exports.getAll = async (req, res) => {
 function extractVentaFilters(query) {
   const allowedTipos = ["CO", "CR", "PO", "TR"];
   const allowedEstados = ["P", "C"];
+  const allowedDocumentos = ["FA", "NC"];
   const filters = {};
   if (query.tipo && allowedTipos.includes(query.tipo)) filters.tipo = query.tipo;
   if (query.almacenId) filters.almacenId = query.almacenId;
@@ -40,6 +41,8 @@ function extractVentaFilters(query) {
   if (query.fechaHasta) filters.fechaHasta = query.fechaHasta;
   if (query.estado && allowedEstados.includes(query.estado))
     filters.estado = query.estado;
+  if (query.documentoTipo && allowedDocumentos.includes(query.documentoTipo))
+    filters.documentoTipo = query.documentoTipo;
   return filters;
 }
 
@@ -395,13 +398,16 @@ exports.confirmar = async (req, res) => {
     ClienteId,
     CajaId,
     UsuarioId,
-    VentaNroFactura = 0,
-    VentaTimbrado = 0,
     VentaNroPOS = "0",
     VentaPagoTipo,
     Pagos = {},
     Productos = [],
   } = req.body || {};
+
+  // Tipo de comprobante: FA (factura, por defecto) o NC (nota de crédito).
+  // El correlativo y el timbrado se asignan dentro de la transacción tomándolos
+  // del rango activo del tipo correspondiente (no se reciben del cliente).
+  const documentoTipo = req.body && req.body.VentaDocumentoTipo === "NC" ? "NC" : "FA";
 
   // Todos los montos de pago caen en columnas BIGINT (Total, VentaEntrega,
   // RegistroDiarioCajaMonto, CajaMonto, VentaCreditoPagoMonto). PG no trunca
@@ -439,6 +445,48 @@ exports.confirmar = async (req, res) => {
     );
     const ultorden = Number(maxRows[0].m) + 1;
 
+    // 1b. Numeración legal del comprobante según el tipo (FA/NC). Se toma el
+    // rango de timbrado activo del tipo (el de mayor FacturaHasta) y se asigna
+    // el próximo correlativo (MAX usado + 1, o FacturaDesde si es el primero).
+    // El papel es preimpreso: el número no se dibuja, sólo se registra para que
+    // la venta coincida con el formulario físico. Todo dentro de la transacción
+    // para que dos ventas concurrentes no tomen el mismo número.
+    const [rangoRows] = await conn.query(
+      `SELECT FacturaTimbrado, FacturaDesde, FacturaHasta
+       FROM factura
+       WHERE FacturaDocumentoTipo = ?
+       ORDER BY FacturaHasta DESC
+       LIMIT 1`,
+      [documentoTipo]
+    );
+    if (!rangoRows.length) {
+      throw new Error(
+        documentoTipo === "NC"
+          ? "No hay timbrado configurado para Nota de Crédito"
+          : "No hay timbrado configurado para Factura"
+      );
+    }
+    const rango = rangoRows[0];
+    const facturaTimbrado = Number(rango.FacturaTimbrado);
+    const facturaDesde = Number(rango.FacturaDesde);
+    const facturaHasta = Number(rango.FacturaHasta);
+
+    const [usadoRows] = await conn.query(
+      `SELECT COALESCE(MAX(VentaNroFactura), 0) AS m
+       FROM venta
+       WHERE VentaTimbrado = ? AND VentaDocumentoTipo = ?`,
+      [facturaTimbrado, documentoTipo]
+    );
+    const ultimoNro = Number(usadoRows[0].m);
+    const ventaNroFactura = ultimoNro > 0 ? ultimoNro + 1 : facturaDesde;
+    if (ventaNroFactura > facturaHasta) {
+      throw new Error(
+        documentoTipo === "NC"
+          ? "Rango de timbrado de Nota de Crédito agotado, cargar nuevo timbrado"
+          : "Rango de timbrado de Factura agotado, cargar nuevo timbrado"
+      );
+    }
+
     // 2. VentaTipo según composición del pago.
     let ventaTipo;
     if (cuentaCliente > 0) ventaTipo = "CR";
@@ -454,8 +502,8 @@ exports.confirmar = async (req, res) => {
       `INSERT INTO venta (
          VentaId, VentaFecha, ClienteId, AlmacenId, VentaTipo, VentaPagoTipo,
          VentaCantidadProductos, VentaUsuario, VentaNroFactura, VentaTimbrado,
-         Total, VentaEntrega, VentaNroPOS
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         Total, VentaEntrega, VentaNroPOS, VentaDocumentoTipo
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ultorden,
         ventaFecha,
@@ -465,11 +513,12 @@ exports.confirmar = async (req, res) => {
         VentaPagoTipo || "",
         Productos.length,
         UsuarioId,
-        VentaNroFactura,
-        VentaTimbrado,
+        ventaNroFactura,
+        facturaTimbrado,
         total,
         ventaEntrega,
         VentaNroPOS,
+        documentoTipo,
       ]
     );
 
@@ -677,6 +726,9 @@ exports.confirmar = async (req, res) => {
       data: {
         VentaId: ultorden,
         VentaTipo: ventaTipo,
+        VentaDocumentoTipo: documentoTipo,
+        VentaNroFactura: ventaNroFactura,
+        VentaTimbrado: facturaTimbrado,
         Total: total,
         VentaEntrega: ventaEntrega,
       },

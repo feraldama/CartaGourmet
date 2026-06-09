@@ -7,6 +7,9 @@ export interface Venta {
   ClienteId: number;
   AlmacenId: number;
   VentaTipo: "CO" | "CR" | "PO" | "TR";
+  VentaDocumentoTipo?: "FA" | "NC";
+  VentaNroFactura?: number;
+  VentaTimbrado?: number;
   VentaPagoTipo: string;
   VentaNroPOS?: string | number;
   VentaCantidadProductos: number;
@@ -50,6 +53,7 @@ export interface VentaProducto {
 
 export interface VentaFilters {
   tipo?: "CO" | "CR" | "PO" | "TR";
+  documentoTipo?: "FA" | "NC";
   almacenId?: number | string;
   fechaDesde?: string;
   fechaHasta?: string;
@@ -62,6 +66,7 @@ const applyVentaFilters = (
 ) => {
   if (!filters) return;
   if (filters.tipo) params.tipo = filters.tipo;
+  if (filters.documentoTipo) params.documentoTipo = filters.documentoTipo;
   if (filters.almacenId) params.almacenId = filters.almacenId;
   if (filters.fechaDesde) params.fechaDesde = filters.fechaDesde;
   if (filters.fechaHasta) params.fechaHasta = filters.fechaHasta;
@@ -259,6 +264,7 @@ export interface ConfirmarVentaPayload {
   CajaId: number;
   UsuarioId: string;
   VentaPagoTipo: string;
+  VentaDocumentoTipo?: "FA" | "NC";
   VentaNroFactura?: number;
   VentaTimbrado?: number;
   VentaNroPOS?: string;

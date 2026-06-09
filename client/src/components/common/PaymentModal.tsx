@@ -24,6 +24,8 @@ interface PaymentModalProps {
   setVoucher: (v: number) => void;
   ventaNroPOS: string;
   setVentaNroPOS: (v: string) => void;
+  documentoTipo: "FA" | "NC";
+  setDocumentoTipo: (v: "FA" | "NC") => void;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -49,6 +51,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   setVoucher,
   ventaNroPOS,
   setVentaNroPOS,
+  documentoTipo,
+  setDocumentoTipo,
 }) => {
   const [pagoTipo, setPagoTipoLocal] = useState<
     "E" | "B" | "D" | "CR" | "C" | "V"
@@ -729,6 +733,36 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 {totalRest < 0 ? formatMiles(totalRest * -1) : "0"}
               </span>
             </div>
+            {/* Tipo de comprobante a emitir e imprimir */}
+            <div className="mt-[18px]">
+              <div className="text-sm text-gray-500 font-semibold mb-1.5">
+                Comprobante
+              </div>
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["FA", "Factura"],
+                    ["NC", "Nota de crédito"],
+                  ] as ["FA" | "NC", string][]
+                ).map(([value, label]) => {
+                  const activo = documentoTipo === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDocumentoTipo(value)}
+                      className={`flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold cursor-pointer transition-colors ${
+                        activo
+                          ? "border-2 border-blue-600 bg-blue-50 text-blue-700"
+                          : "border border-slate-300 bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div
               style={{
                 marginTop: 18,
@@ -837,7 +871,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             onClick={handleSendRequest}
             disabled={isSubmitting || totalRest > 0 || !ventaNroPOSValido}
           >
-            Facturar
+            {documentoTipo === "NC" ? "Emitir N. Crédito" : "Facturar"}
           </button>
         </div>
       </div>

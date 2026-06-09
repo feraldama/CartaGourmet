@@ -290,6 +290,12 @@ const VentasList = ({
       render: (venta: VentaWithId) => getTipoVentaText(venta.VentaTipo),
     },
     {
+      key: "VentaDocumentoTipo",
+      label: "Comprobante",
+      render: (venta: VentaWithId) =>
+        venta.VentaDocumentoTipo === "NC" ? "Nota de Crédito" : "Factura",
+    },
+    {
       key: "VentaNroPOS",
       label: "Nro. POS",
       render: (venta: VentaWithId) =>
@@ -384,7 +390,7 @@ const VentasList = ({
       </div>
       {onFiltersChange && showFilters && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <label className="block mb-1 text-xs font-medium text-gray-700">
                 Tipo
@@ -404,6 +410,25 @@ const VentasList = ({
                 <option value="CR">Crédito</option>
                 <option value="PO">POS</option>
                 <option value="TR">Transfer</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Comprobante
+              </label>
+              <select
+                value={activeFilters.documentoTipo || ""}
+                onChange={(e) =>
+                  updateFilter(
+                    "documentoTipo",
+                    (e.target.value as VentaFilters["documentoTipo"]) || ""
+                  )
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                <option value="FA">Factura</option>
+                <option value="NC">Nota de Crédito</option>
               </select>
             </div>
             <div>

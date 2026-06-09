@@ -11,6 +11,7 @@ interface Factura {
   FacturaTimbrado: string;
   FacturaDesde: string;
   FacturaHasta: string;
+  FacturaDocumentoTipo?: string;
   [key: string]: unknown;
 }
 
@@ -61,6 +62,7 @@ export default function FacturasList({
     FacturaTimbrado: "",
     FacturaDesde: "",
     FacturaHasta: "",
+    FacturaDocumentoTipo: "FA",
   });
 
   useEffect(() => {
@@ -71,6 +73,7 @@ export default function FacturasList({
         FacturaTimbrado: currentFactura.FacturaTimbrado,
         FacturaDesde: currentFactura.FacturaDesde,
         FacturaHasta: currentFactura.FacturaHasta,
+        FacturaDocumentoTipo: currentFactura.FacturaDocumentoTipo || "FA",
       });
     } else {
       setFormData({
@@ -79,6 +82,7 @@ export default function FacturasList({
         FacturaTimbrado: "",
         FacturaDesde: "",
         FacturaHasta: "",
+        FacturaDocumentoTipo: "FA",
       });
     }
   }, [currentFactura]);
@@ -106,6 +110,14 @@ export default function FacturasList({
 
   const columns = [
     { key: "FacturaId", label: "ID" },
+    {
+      key: "FacturaDocumentoTipo",
+      label: "Comprobante",
+      render: (factura: Factura) =>
+        factura.FacturaDocumentoTipo === "NC"
+          ? "Nota de Crédito"
+          : "Factura",
+    },
     { key: "FacturaTimbrado", label: "Timbrado" },
     { key: "FacturaDesde", label: "Desde" },
     { key: "FacturaHasta", label: "Hasta" },
@@ -190,6 +202,24 @@ export default function FacturasList({
               </div>
               <div className="p-6 space-y-6">
                 <div className="grid grid-cols-6 gap-6">
+                  <div className="col-span-6">
+                    <label
+                      htmlFor="FacturaDocumentoTipo"
+                      className="block mb-2 text-sm font-medium text-gray-900"
+                    >
+                      Tipo de comprobante
+                    </label>
+                    <select
+                      name="FacturaDocumentoTipo"
+                      id="FacturaDocumentoTipo"
+                      value={formData.FacturaDocumentoTipo}
+                      onChange={handleInputChange}
+                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                    >
+                      <option value="FA">Factura</option>
+                      <option value="NC">Nota de Crédito</option>
+                    </select>
+                  </div>
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="FacturaTimbrado"

@@ -22,6 +22,10 @@ function buildVentaFiltersWhere(filters = {}) {
     conditions.push("v.VentaTipo = ?");
     params.push(filters.tipo);
   }
+  if (filters.documentoTipo) {
+    conditions.push("v.VentaDocumentoTipo = ?");
+    params.push(filters.documentoTipo);
+  }
   if (filters.almacenId) {
     conditions.push("v.AlmacenId = ?");
     params.push(Number(filters.almacenId));
