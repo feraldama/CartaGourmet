@@ -1,4 +1,5 @@
 const Almacen = require("../models/almacen.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
@@ -23,7 +24,8 @@ exports.getAll = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -35,7 +37,8 @@ exports.getById = async (req, res) => {
     }
     res.json(almacen);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -46,7 +49,8 @@ exports.create = async (req, res) => {
       .status(201)
       .json({ message: "Almacén creado exitosamente", data: almacen });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -58,7 +62,8 @@ exports.update = async (req, res) => {
     }
     res.json({ message: "Almacén actualizado exitosamente", data: almacen });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -70,7 +75,8 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Almacén eliminado exitosamente" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -107,6 +113,7 @@ exports.searchAlmacenes = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar almacenes" });
   }
 };

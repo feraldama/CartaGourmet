@@ -1,6 +1,7 @@
-import { createContext, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
+import { AuthContext } from "./AuthContextDef";
 
 interface User {
   // Define aquí las propiedades del usuario según tu modelo, por ejemplo:
@@ -34,10 +35,6 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
 }
-
-export const AuthContext = createContext<AuthContextType | undefined>(
-  undefined
-);
 
 interface AuthProviderProps {
   children: ReactNode;

@@ -2,10 +2,16 @@ import { useEffect, useState, useRef } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  TrashIcon,
+  FunnelIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { getLocales } from "../../services/locales.service";
 import { getAlmacenes } from "../../services/almacenes.service";
 import { formatMiles, formatMilesWithDecimals } from "../../utils/utils";
+import type { ProductoFilters } from "../../services/productos.service";
 
 export interface ProductoAlmacenRow {
   AlmacenId: number;
@@ -57,6 +63,10 @@ interface ProductsListProps {
   sortKey?: string;
   sortOrder?: "asc" | "desc";
   onSort?: (key: string, order: "asc" | "desc") => void;
+  filters?: ProductoFilters;
+  onFiltersChange?: (filters: ProductoFilters) => void;
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
 }
 
 export default function ProductsList({
@@ -76,7 +86,61 @@ export default function ProductsList({
   sortKey,
   sortOrder,
   onSort,
+  filters,
+  onFiltersChange,
+  showFilters = false,
+  onToggleFilters,
 }: ProductsListProps) {
+  const activeFilters = filters || {};
+  const activeFilterCount = Object.values(activeFilters).filter(
+    (v) => v !== undefined && v !== "" && v !== null
+  ).length;
+
+  const updateFilter = <K extends keyof ProductoFilters>(
+    key: K,
+    value: ProductoFilters[K] | ""
+  ) => {
+    if (!onFiltersChange) return;
+    const next: ProductoFilters = { ...activeFilters };
+    if (value === "" || value === undefined || value === null) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+    onFiltersChange(next);
+  };
+
+  const clearFilters = () => {
+    if (!onFiltersChange) return;
+    onFiltersChange({});
+  };
+
+  // Estado local para inputs numéricos — sólo sincronizan con el filtro en blur
+  // o Enter, para evitar un fetch por cada dígito tipeado.
+  const [stockMinLocal, setStockMinLocal] = useState(
+    activeFilters.stockMin?.toString() || ""
+  );
+  const [stockMaxLocal, setStockMaxLocal] = useState(
+    activeFilters.stockMax?.toString() || ""
+  );
+  const [precioMinLocal, setPrecioMinLocal] = useState(
+    activeFilters.precioMin?.toString() || ""
+  );
+  const [precioMaxLocal, setPrecioMaxLocal] = useState(
+    activeFilters.precioMax?.toString() || ""
+  );
+  useEffect(() => {
+    setStockMinLocal(activeFilters.stockMin?.toString() || "");
+  }, [activeFilters.stockMin]);
+  useEffect(() => {
+    setStockMaxLocal(activeFilters.stockMax?.toString() || "");
+  }, [activeFilters.stockMax]);
+  useEffect(() => {
+    setPrecioMinLocal(activeFilters.precioMin?.toString() || "");
+  }, [activeFilters.precioMin]);
+  useEffect(() => {
+    setPrecioMaxLocal(activeFilters.precioMax?.toString() || "");
+  }, [activeFilters.precioMax]);
   const [formData, setFormData] = useState<Producto>({
     ProductoCodigo: "0",
     ProductoNombre: "",
@@ -106,7 +170,7 @@ export default function ProductsList({
   const [precioCostoFocused, setPrecioCostoFocused] = useState(false);
 
   useEffect(() => {
-    getAlmacenes(1, 500).then((res) => {
+    getAlmacenes(1, 200).then((res) => {
       setAlmacenes(res.data ?? []);
     });
   }, []);
@@ -170,7 +234,7 @@ export default function ProductsList({
       });
     }
     setPrecioCostoFocused(false); // Resetear el estado de foco cuando cambia el producto
-    getLocales(1, 1000).then((res) => {
+    getLocales(1, 200).then((res) => {
       setLocales(res.data || []);
     });
   }, [currentProduct]);
@@ -306,7 +370,7 @@ export default function ProductsList({
       key: "ProductoPrecioVenta",
       label: "Precio Venta",
       render: (item: Producto) =>
-        `Gs. ${formatMiles(item.ProductoPrecioVenta ?? 0)}`,
+        `Gs. ${item.ProductoPrecioVenta?.toLocaleString()}`,
     },
     {
       key: "ProductoStock",
@@ -337,7 +401,22 @@ export default function ProductsList({
             placeholder="Buscar productos"
           />
         </div>
-        <div className="py-4">
+        <div className="py-4 flex gap-2">
+          {onFiltersChange && onToggleFilters && (
+            <button
+              type="button"
+              onClick={onToggleFilters}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <FunnelIcon className="w-4 h-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
           {onCreate && (
             <ActionButton
               label="Nuevo Producto"
@@ -347,10 +426,184 @@ export default function ProductsList({
           )}
         </div>
       </div>
+      {onFiltersChange && showFilters && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Local
+              </label>
+              <select
+                value={activeFilters.localId ?? ""}
+                onChange={(e) =>
+                  updateFilter("localId", e.target.value || "")
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                {locales.map((l) => (
+                  <option key={l.LocalId} value={l.LocalId}>
+                    {l.LocalNombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Stock mín.
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={stockMinLocal}
+                onChange={(e) => setStockMinLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  if (
+                    value &&
+                    stockMaxLocal &&
+                    Number(value) > Number(stockMaxLocal)
+                  ) {
+                    setStockMinLocal(
+                      activeFilters.stockMin?.toString() || ""
+                    );
+                    return;
+                  }
+                  if (value !== (activeFilters.stockMin?.toString() || "")) {
+                    updateFilter("stockMin", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Stock máx.
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={stockMaxLocal}
+                onChange={(e) => setStockMaxLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  if (
+                    value &&
+                    stockMinLocal &&
+                    Number(value) < Number(stockMinLocal)
+                  ) {
+                    setStockMaxLocal(
+                      activeFilters.stockMax?.toString() || ""
+                    );
+                    return;
+                  }
+                  if (value !== (activeFilters.stockMax?.toString() || "")) {
+                    updateFilter("stockMax", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Precio mín.
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={precioMinLocal}
+                onChange={(e) => setPrecioMinLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  if (
+                    value &&
+                    precioMaxLocal &&
+                    Number(value) > Number(precioMaxLocal)
+                  ) {
+                    setPrecioMinLocal(
+                      activeFilters.precioMin?.toString() || ""
+                    );
+                    return;
+                  }
+                  if (value !== (activeFilters.precioMin?.toString() || "")) {
+                    updateFilter("precioMin", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Precio máx.
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={precioMaxLocal}
+                onChange={(e) => setPrecioMaxLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  if (
+                    value &&
+                    precioMinLocal &&
+                    Number(value) < Number(precioMinLocal)
+                  ) {
+                    setPrecioMaxLocal(
+                      activeFilters.precioMax?.toString() || ""
+                    );
+                    return;
+                  }
+                  if (value !== (activeFilters.precioMax?.toString() || "")) {
+                    updateFilter("precioMax", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+              >
+                <XMarkIcon className="w-4 h-4" />
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {productos.length} de {pagination?.totalItems} productos
+          Mostrando {formatMiles(productos.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} productos
         </div>
       </div>
 
@@ -458,7 +711,11 @@ export default function ProductsList({
                       type="text"
                       name="ProductoPrecioVenta"
                       id="ProductoPrecioVenta"
-                      value={formatMiles(formData.ProductoPrecioVenta)}
+                      value={
+                        formData.ProductoPrecioVenta
+                          ? formatMiles(formData.ProductoPrecioVenta)
+                          : ""
+                      }
                       onChange={(e) => {
                         // Eliminar puntos y formatear a número
                         const raw = e.target.value.replace(/\./g, "");
@@ -483,9 +740,11 @@ export default function ProductsList({
                       type="text"
                       name="ProductoPrecioVentaMayorista"
                       id="ProductoPrecioVentaMayorista"
-                      value={formatMiles(
-                        formData.ProductoPrecioVentaMayorista || 0
-                      )}
+                      value={
+                        formData.ProductoPrecioVentaMayorista
+                          ? formatMiles(formData.ProductoPrecioVentaMayorista)
+                          : ""
+                      }
                       onChange={(e) => {
                         const raw = e.target.value.replace(/\./g, "");
                         setFormData((prev) => ({
@@ -507,7 +766,7 @@ export default function ProductsList({
                       type="number"
                       name="ProductoPrecioUnitario"
                       id="ProductoPrecioUnitario"
-                      value={formData.ProductoPrecioUnitario}
+                      value={formData.ProductoPrecioUnitario || ""}
                       onChange={handleInputChange}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                     />
@@ -525,10 +784,14 @@ export default function ProductsList({
                       id="ProductoPrecioPromedio"
                       value={
                         precioCostoFocused
-                          ? formData.ProductoPrecioPromedio?.toString() || ""
-                          : formatMilesWithDecimals(
-                              formData.ProductoPrecioPromedio || 0
+                          ? formData.ProductoPrecioPromedio
+                            ? formData.ProductoPrecioPromedio.toString()
+                            : ""
+                          : formData.ProductoPrecioPromedio
+                          ? formatMilesWithDecimals(
+                              formData.ProductoPrecioPromedio
                             )
+                          : ""
                       }
                       onFocus={() => setPrecioCostoFocused(true)}
                       onBlur={() => setPrecioCostoFocused(false)}
@@ -666,8 +929,7 @@ export default function ProductsList({
                                 <td className="px-3 py-2">
                                   <input
                                     type="number"
-                                    min={0}
-                                    value={row.ProductoAlmacenStock}
+                                    value={row.ProductoAlmacenStock || ""}
                                     onChange={(e) =>
                                       updateStockAlmacen(
                                         index,
@@ -676,6 +938,7 @@ export default function ProductsList({
                                       )
                                     }
                                     className="bg-gray-50 border border-gray-300 text-gray-900 rounded focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+                                    title="Permitido negativo (ej. ventas registradas antes de cargar la compra)"
                                   />
                                 </td>
                                 <td className="px-3 py-2">
@@ -683,7 +946,7 @@ export default function ProductsList({
                                     type="number"
                                     min={0}
                                     max={Math.max(0, cantidadCaja - 1)}
-                                    value={row.ProductoAlmacenStockUnitario}
+                                    value={row.ProductoAlmacenStockUnitario || ""}
                                     onChange={(e) => {
                                       const raw = Number(e.target.value) || 0;
                                       const clamped = Math.min(
@@ -730,7 +993,7 @@ export default function ProductsList({
                       type="number"
                       name="ProductoCantidadCaja"
                       id="ProductoCantidadCaja"
-                      value={formData.ProductoCantidadCaja}
+                      value={formData.ProductoCantidadCaja || ""}
                       onChange={handleInputChange}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                     />
@@ -746,7 +1009,7 @@ export default function ProductsList({
                       type="number"
                       name="ProductoIVA"
                       id="ProductoIVA"
-                      value={formData.ProductoIVA}
+                      value={formData.ProductoIVA || ""}
                       onChange={handleInputChange}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                     />
@@ -762,7 +1025,7 @@ export default function ProductsList({
                       type="number"
                       name="ProductoStockMinimo"
                       id="ProductoStockMinimo"
-                      value={formData.ProductoStockMinimo}
+                      value={formData.ProductoStockMinimo || ""}
                       onChange={handleInputChange}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                     />

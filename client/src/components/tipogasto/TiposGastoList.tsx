@@ -15,6 +15,7 @@ import {
   type TipoGastoGrupo,
 } from "../../services/tipogastogrupo.service";
 import Swal from "sweetalert2";
+import { formatMiles } from "../../utils/utils";
 
 interface TipoGasto {
   id: string | number;
@@ -156,8 +157,8 @@ export default function TiposGastoList({
       </div>
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {tiposGasto.length} de {pagination?.totalItems} tipos de
-          gasto
+          Mostrando {formatMiles(tiposGasto.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} tipos de gasto
         </div>
       </div>
       <DataTable<TipoGasto>
@@ -250,7 +251,7 @@ export default function TiposGastoList({
                               {editGrupoId === g.TipoGastoGrupoId ? (
                                 <>
                                   <input
-                                    className="border rounded px-2 py-1 text-sm"
+                                    className="border rounded px-2 py-1 text-sm uppercase"
                                     value={editGrupoDesc}
                                     onChange={(e) =>
                                       setEditGrupoDesc(e.target.value)
@@ -266,7 +267,7 @@ export default function TiposGastoList({
                                           g.TipoGastoGrupoId,
                                           {
                                             TipoGastoGrupoDescripcion:
-                                              editGrupoDesc,
+                                              editGrupoDesc.toUpperCase(),
                                           }
                                         );
                                         setEditGrupoId(null);
@@ -403,7 +404,7 @@ export default function TiposGastoList({
                         </ul>
                         <div className="flex gap-2 mt-2">
                           <input
-                            className="border rounded px-2 py-1 text-sm flex-1"
+                            className="border rounded px-2 py-1 text-sm flex-1 uppercase"
                             placeholder="Nuevo grupo..."
                             value={nuevoGrupo}
                             onChange={(e) => setNuevoGrupo(e.target.value)}
@@ -415,7 +416,8 @@ export default function TiposGastoList({
                               if (!nuevoGrupo.trim()) return;
                               const res = await createTipoGastoGrupo({
                                 TipoGastoId: currentTipoGasto.TipoGastoId,
-                                TipoGastoGrupoDescripcion: nuevoGrupo,
+                                TipoGastoGrupoDescripcion:
+                                  nuevoGrupo.toUpperCase(),
                               });
                               setNuevoGrupo("");
                               setLoadingGrupos(true);

@@ -6,6 +6,45 @@ const db = require("../config/db");
  * - Si es solo fecha (YYYY-MM-DD): usa esa fecha con la hora actual del momento del registro
  * - Si es datetime completo: lo usa tal cual
  */
+/**
+ * Construye la cláusula WHERE para filtros de registros diarios de caja.
+ * - cajaId (FK Caja)
+ * - tipoGastoId (FK TipoGasto)
+ * - rango de fechas sobre RegistroDiarioCajaFecha
+ * - rango de monto sobre RegistroDiarioCajaMonto
+ */
+function buildRegistroFiltersWhere(filters = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (filters.cajaId != null && filters.cajaId !== "") {
+    conditions.push("r.CajaId = ?");
+    params.push(Number(filters.cajaId));
+  }
+  if (filters.tipoGastoId != null && filters.tipoGastoId !== "") {
+    conditions.push("r.TipoGastoId = ?");
+    params.push(Number(filters.tipoGastoId));
+  }
+  if (filters.fechaDesde) {
+    conditions.push("DATE(r.RegistroDiarioCajaFecha) >= ?");
+    params.push(filters.fechaDesde);
+  }
+  if (filters.fechaHasta) {
+    conditions.push("DATE(r.RegistroDiarioCajaFecha) <= ?");
+    params.push(filters.fechaHasta);
+  }
+  if (filters.montoMin != null && filters.montoMin !== "") {
+    conditions.push("r.RegistroDiarioCajaMonto >= ?");
+    params.push(Number(filters.montoMin));
+  }
+  if (filters.montoMax != null && filters.montoMax !== "") {
+    conditions.push("r.RegistroDiarioCajaMonto <= ?");
+    params.push(Number(filters.montoMax));
+  }
+
+  return { conditions, params };
+}
+
 function normalizeRegistroFecha(value) {
   if (!value) return new Date();
   const str = String(value).trim();
@@ -53,7 +92,8 @@ const RegistroDiarioCaja = {
     limit,
     offset,
     sortBy = "RegistroDiarioCajaId",
-    sortOrder = "DESC"
+    sortOrder = "DESC",
+    filters = {}
   ) => {
     return new Promise((resolve, reject) => {
       // Sanitiza sortOrder y sortBy para evitar SQL Injection
@@ -66,7 +106,6 @@ const RegistroDiarioCaja = {
         "TipoGastoGrupoId",
         "UsuarioId",
         "CajaId",
-        // agrega los campos que quieras permitir
       ];
       const allowedSortOrders = ["ASC", "DESC"];
 
@@ -77,38 +116,46 @@ const RegistroDiarioCaja = {
         ? sortOrder.toUpperCase()
         : "DESC";
 
+      const { conditions, params: filterParams } =
+        buildRegistroFiltersWhere(filters);
+      const whereSql = conditions.length
+        ? `WHERE ${conditions.join(" AND ")}`
+        : "";
+
       const query = `
-        SELECT r.*, 
-          c.CajaDescripcion, 
-          t.TipoGastoDescripcion, 
+        SELECT r.*,
+          c.CajaDescripcion,
+          t.TipoGastoDescripcion,
           tg.TipoGastoGrupoDescripcion
         FROM registrodiariocaja r
         LEFT JOIN Caja c ON r.CajaId = c.CajaId
         LEFT JOIN TipoGasto t ON r.TipoGastoId = t.TipoGastoId
         LEFT JOIN tipogastogrupo tg ON r.TipoGastoId = tg.TipoGastoId AND r.TipoGastoGrupoId = tg.TipoGastoGrupoId
+        ${whereSql}
         ORDER BY r.${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
 
-      db.query(query, [limit, offset], (err, results) => {
+      db.query(query, [...filterParams, limit, offset], (err, results) => {
         if (err) return reject(err);
 
-        db.query(
-          "SELECT COUNT(*) as total FROM registrodiariocaja",
-          (err, countResult) => {
-            if (err) return reject(err);
+        const countQuery = `
+          SELECT COUNT(*) as total FROM registrodiariocaja r
+          ${whereSql}`;
 
-            resolve({
-              data: results,
-              pagination: {
-                totalItems: countResult[0].total,
-                totalPages: Math.ceil(countResult[0].total / limit),
-                currentPage: Math.floor(offset / limit) + 1,
-                itemsPerPage: limit,
-              },
-            });
-          }
-        );
+        db.query(countQuery, filterParams, (err, countResult) => {
+          if (err) return reject(err);
+
+          resolve({
+            data: results,
+            pagination: {
+              totalItems: countResult[0].total,
+              totalPages: Math.ceil(countResult[0].total / limit),
+              currentPage: Math.floor(offset / limit) + 1,
+              itemsPerPage: limit,
+            },
+          });
+        });
       });
     });
   },
@@ -118,10 +165,10 @@ const RegistroDiarioCaja = {
     limit,
     offset,
     sortBy = "RegistroDiarioCajaFecha",
-    sortOrder = "DESC"
+    sortOrder = "DESC",
+    filters = {}
   ) => {
     return new Promise((resolve, reject) => {
-      // Sanitiza los campos para evitar SQL Injection
       const allowedSortFields = [
         "RegistroDiarioCajaId",
         "RegistroDiarioCajaFecha",
@@ -141,40 +188,45 @@ const RegistroDiarioCaja = {
         ? sortOrder.toUpperCase()
         : "DESC";
 
+      const { conditions: filterConditions, params: filterParams } =
+        buildRegistroFiltersWhere(filters);
+      const filtersAndClause = filterConditions.length
+        ? ` AND ${filterConditions.join(" AND ")}`
+        : "";
+
       const searchQuery = `
-        SELECT r.*, 
-          c.CajaDescripcion, 
-          t.TipoGastoDescripcion, 
+        SELECT r.*,
+          c.CajaDescripcion,
+          t.TipoGastoDescripcion,
           tg.TipoGastoGrupoDescripcion
         FROM registrodiariocaja r
         LEFT JOIN Caja c ON r.CajaId = c.CajaId
         LEFT JOIN TipoGasto t ON r.TipoGastoId = t.TipoGastoId
         LEFT JOIN tipogastogrupo tg ON r.TipoGastoId = tg.TipoGastoId AND r.TipoGastoGrupoId = tg.TipoGastoGrupoId
-        WHERE r.RegistroDiarioCajaDetalle LIKE ? 
+        WHERE (r.RegistroDiarioCajaDetalle LIKE ?
           OR CAST(r.UsuarioId AS CHAR) LIKE ?
           OR CAST(r.CajaId AS CHAR) LIKE ?
           OR CAST(r.TipoGastoId AS CHAR) LIKE ?
           OR CAST(r.TipoGastoGrupoId AS CHAR) LIKE ?
           OR CAST(r.RegistroDiarioCajaMonto AS CHAR) LIKE ?
-          OR DATE_FORMAT(r.RegistroDiarioCajaFecha, '%d/%m/%Y %H:%i:%s') LIKE ?
+          OR TO_CHAR(r.RegistroDiarioCajaFecha, 'DD/MM/YYYY HH24:MI:SS') LIKE ?)${filtersAndClause}
         ORDER BY r.${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
       const searchValue = `%${term}%`;
+      const searchParams = [
+        searchValue,
+        searchValue,
+        searchValue,
+        searchValue,
+        searchValue,
+        searchValue,
+        searchValue,
+      ];
 
       db.query(
         searchQuery,
-        [
-          searchValue, // Detalle
-          searchValue, // UsuarioId
-          searchValue, // CajaId
-          searchValue, // TipoGastoId
-          searchValue, // TipoGastoGrupoId
-          searchValue, // Monto
-          searchValue, // Fecha
-          limit,
-          offset,
-        ],
+        [...searchParams, ...filterParams, limit, offset],
         (err, results) => {
           if (err) {
             console.error("Error en la consulta de búsqueda:", err);
@@ -182,27 +234,19 @@ const RegistroDiarioCaja = {
           }
 
           const countQuery = `
-            SELECT COUNT(*) as total FROM registrodiariocaja 
-            WHERE RegistroDiarioCajaDetalle LIKE ? 
-              OR CAST(UsuarioId AS CHAR) LIKE ?
-              OR CAST(CajaId AS TEXT) LIKE ?
-              OR CAST(TipoGastoId AS TEXT) LIKE ?
-              OR CAST(TipoGastoGrupoId AS TEXT) LIKE ?
-              OR CAST(RegistroDiarioCajaMonto AS CHAR) LIKE ?
-              OR DATE_FORMAT(RegistroDiarioCajaFecha, '%d/%m/%Y %H:%i:%s') LIKE ?
+            SELECT COUNT(*) as total FROM registrodiariocaja r
+            WHERE (r.RegistroDiarioCajaDetalle LIKE ?
+              OR CAST(r.UsuarioId AS CHAR) LIKE ?
+              OR CAST(r.CajaId AS CHAR) LIKE ?
+              OR CAST(r.TipoGastoId AS CHAR) LIKE ?
+              OR CAST(r.TipoGastoGrupoId AS CHAR) LIKE ?
+              OR CAST(r.RegistroDiarioCajaMonto AS CHAR) LIKE ?
+              OR TO_CHAR(r.RegistroDiarioCajaFecha, 'DD/MM/YYYY HH24:MI:SS') LIKE ?)${filtersAndClause}
           `;
 
           db.query(
             countQuery,
-            [
-              searchValue,
-              searchValue,
-              searchValue,
-              searchValue,
-              searchValue,
-              searchValue,
-              searchValue,
-            ],
+            [...searchParams, ...filterParams],
             (err, countResult) => {
               if (err) {
                 console.error("Error en la consulta de conteo:", err);

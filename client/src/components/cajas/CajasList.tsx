@@ -5,13 +5,7 @@ import DataTable from "../common/Table/DataTable";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { formatMiles } from "../../utils/utils";
 
-interface Caja {
-  id: string | number;
-  CajaId: string | number;
-  CajaDescripcion: string;
-  CajaMonto: number;
-  [key: string]: unknown;
-}
+import type { Caja } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -134,7 +128,8 @@ export default function CajasList({
       </div>
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {cajas.length} de {pagination?.totalItems} cajas
+          Mostrando {formatMiles(cajas.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} cajas
         </div>
       </div>
       <DataTable<Caja>

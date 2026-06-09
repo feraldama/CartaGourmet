@@ -8,6 +8,11 @@ import {
 } from "../../services/menus.service";
 import MenusList from "../../components/menus/MenusList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import Swal from "sweetalert2";
 
 interface Menu {
@@ -159,9 +164,18 @@ export default function MenusPage() {
     if (e.key === "Enter") handleSearchSubmit();
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver los menús.</div>;
-  if (loading) return <div>Cargando menús...</div>;
-  if (error) return <div>{error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los menús" />;
+  if (loading) return <LoadingState message="Cargando menús..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchMenus();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -179,6 +193,7 @@ export default function MenusPage() {
         onSearch={handleSearch}
         onKeyPress={handleKeyPress}
         onSearchSubmit={handleSearchSubmit}
+        pagination={menusData.pagination}
       />
       <Pagination
         currentPage={currentPage}

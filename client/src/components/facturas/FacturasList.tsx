@@ -3,6 +3,7 @@ import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { formatMiles } from "../../utils/utils";
 
 interface Factura {
   id: string | number;
@@ -134,7 +135,8 @@ export default function FacturasList({
       </div>
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {facturas.length} de {pagination?.totalItems} facturas
+          Mostrando {formatMiles(facturas.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} facturas
         </div>
       </div>
       <DataTable<Factura>

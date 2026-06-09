@@ -1,11 +1,24 @@
 import api from "./api";
 import type { AxiosError } from "axios";
 
+export interface ClienteFilters {
+  tipo?: "MI" | "MA";
+}
+
+const applyClienteFilters = (
+  params: { [key: string]: string | number | undefined },
+  filters?: ClienteFilters
+) => {
+  if (!filters) return;
+  if (filters.tipo) params.tipo = filters.tipo;
+};
+
 export const getClientes = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: ClienteFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     page,
@@ -13,6 +26,7 @@ export const getClientes = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyClienteFilters(params, filters);
   try {
     const response = await api.get("/clientes", { params });
     return response.data;
@@ -72,7 +86,8 @@ export const searchClientes = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: ClienteFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     q: searchTerm,
@@ -81,6 +96,7 @@ export const searchClientes = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyClienteFilters(params, filters);
   try {
     const response = await api.get("/clientes/search", { params });
     return response.data;

@@ -3,13 +3,9 @@ import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { formatMiles } from "../../utils/utils";
 
-interface Almacen {
-  id: string | number;
-  AlmacenId: string | number;
-  AlmacenNombre: string;
-  [key: string]: unknown;
-}
+import type { Almacen } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -124,7 +120,8 @@ export default function AlmacenesList({
       </div>
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {almacenes.length} de {pagination?.totalItems} almacenes
+          Mostrando {formatMiles(almacenes.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} almacenes
         </div>
       </div>
       <DataTable<Almacen>

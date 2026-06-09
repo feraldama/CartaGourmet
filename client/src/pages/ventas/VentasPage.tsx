@@ -4,19 +4,23 @@ import {
   getVentasPaginated,
   searchVentas,
   type Venta,
+  type VentaFilters,
   getProductosByVentaId,
   type VentaProducto,
   deleteVenta,
 } from "../../services/venta.service";
 import { getClienteById } from "../../services/clientes.service";
 import { getProductoById } from "../../services/productos.service";
-import { getAlmacenById } from "../../services/almacenes.service";
+import { getAlmacenById, getAlmacenes } from "../../services/almacenes.service";
 import VentasList from "../../components/ventas/VentasList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import { formatCurrency } from "../../utils/utils";
 import Swal from "sweetalert2";
-import axios from "axios";
-import { js2xml } from "xml-js";
 
 interface Pagination {
   totalItems: number;
@@ -37,6 +41,11 @@ export default function VentasPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string>("VentaId");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [filters, setFilters] = useState<VentaFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [almacenes, setAlmacenes] = useState<
+    { AlmacenId: number; AlmacenNombre: string }[]
+  >([]);
 
   const puedeCrear = usePermiso("VENTAS", "crear");
   const puedeLeer = usePermiso("VENTAS", "leer");
@@ -76,14 +85,16 @@ export default function VentasPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
         data = await getVentasPaginated(
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       }
       const ventasConClientes = await loadClientesData(data.data);
@@ -101,11 +112,38 @@ export default function VentasPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
 
   useEffect(() => {
     fetchVentas();
   }, [fetchVentas]);
+
+  useEffect(() => {
+    // Cargar almacenes una sola vez para el dropdown de filtros.
+    // El endpoint está paginado; usamos un limit alto porque la cantidad
+    // esperada de almacenes es chica (decenas como máximo).
+    const loadAlmacenes = async () => {
+      try {
+        const data = await getAlmacenes(1, 200);
+        setAlmacenes(data?.data || []);
+      } catch (err) {
+        console.error("Error al cargar almacenes para filtros:", err);
+      }
+    };
+    loadAlmacenes();
+  }, []);
+
+  const handleFiltersChange = (newFilters: VentaFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -265,54 +303,8 @@ export default function VentasPage() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // Preparar fecha para el webservice
-          const fechaDate = new Date();
-          const dia = fechaDate.getDate();
-          const mes = fechaDate.getMonth() + 1;
-          const año = fechaDate.getFullYear() % 100;
-          const diaStr = dia < 10 ? `0${dia}` : dia.toString();
-          const mesStr = mes < 10 ? `0${mes}` : mes.toString();
-          const añoStr = año < 10 ? `0${año}` : año.toString();
-          const fechaFormateada = `${diaStr}/${mesStr}/${añoStr}`;
-
-          // Preparar datos para el webservice
-          const json = {
-            Envelope: {
-              _attributes: {
-                xmlns: "http://schemas.xmlsoap.org/soap/envelope/",
-              },
-              Body: {
-                "PBorrarRegistoDiarioWS.VENTACONFIRMAR": {
-                  _attributes: { xmlns: "TechNow" },
-                  Ventaid: venta.VentaId,
-                  Fechastring: fechaFormateada,
-                  Regla: 1, // Valor por defecto para Regla
-                },
-              },
-            },
-          };
-
-          const xml = js2xml(json, {
-            compact: true,
-            ignoreComment: true,
-            spaces: 4,
-          });
-          const config = {
-            headers: {
-              "Content-Type": "text/xml",
-            },
-          };
-
-          // PRIMERO: Llamar al webservice
-          await axios.post(
-            `${import.meta.env.VITE_APP_URL}${
-              import.meta.env.VITE_APP_URL_GENEXUS
-            }apborrarregistodiariows`,
-            xml,
-            config
-          );
-
-          // SEGUNDO: Solo si el webservice fue exitoso, eliminar la venta
+          // El endpoint Node DELETE ya revierte caja y restituye stock
+          // atómicamente (reemplaza el viejo apborrarregistodiariows + delete).
           await deleteVenta(venta.VentaId);
 
           let timerInterval: ReturnType<typeof setInterval>;
@@ -375,9 +367,18 @@ export default function VentasPage() {
     console.log("Crear nueva venta");
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver las ventas.</div>;
-  if (loading) return <div>Cargando ventas...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="las ventas" />;
+  if (loading) return <LoadingState message="Cargando ventas..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchVentas();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -399,6 +400,11 @@ export default function VentasPage() {
           setSortOrder(order);
           setCurrentPage(1);
         }}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        almacenes={almacenes}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

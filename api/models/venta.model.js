@@ -6,6 +6,50 @@ const db = require("../config/db");
  * - Si es solo fecha (YYYY-MM-DD): usa esa fecha con la hora actual del momento del registro
  * - Si es datetime completo: lo usa tal cual
  */
+/**
+ * Construye la cláusula WHERE para filtros de ventas.
+ * Asume que la query incluye el JOIN a `vcp_sum` (suma de pagos por crédito)
+ * para poder evaluar el estado pendiente/completado con la fórmula:
+ *   Saldo = Total - VentaEntrega - SUM(VentaCreditoPagoMonto)
+ * - Pendiente (P): solo aplica a ventas CR con Saldo > 0
+ * - Completado (C): no-CR siempre, o CR con Saldo <= 0
+ */
+function buildVentaFiltersWhere(filters = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (filters.tipo) {
+    conditions.push("v.VentaTipo = ?");
+    params.push(filters.tipo);
+  }
+  if (filters.almacenId) {
+    conditions.push("v.AlmacenId = ?");
+    params.push(Number(filters.almacenId));
+  }
+  if (filters.fechaDesde) {
+    conditions.push("DATE(v.VentaFecha) >= ?");
+    params.push(filters.fechaDesde);
+  }
+  if (filters.fechaHasta) {
+    conditions.push("DATE(v.VentaFecha) <= ?");
+    params.push(filters.fechaHasta);
+  }
+  if (filters.estado === "P") {
+    conditions.push(
+      "v.VentaTipo = 'CR' AND (v.Total - COALESCE(v.VentaEntrega, 0) - COALESCE(vcp_sum.TotalPagos, 0)) > 0"
+    );
+  } else if (filters.estado === "C") {
+    conditions.push(
+      "(v.VentaTipo <> 'CR' OR (v.Total - COALESCE(v.VentaEntrega, 0) - COALESCE(vcp_sum.TotalPagos, 0)) <= 0)"
+    );
+  }
+
+  const whereSql = conditions.length
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
+  return { whereSql, params };
+}
+
 function normalizeVentaFecha(value) {
   if (!value) return new Date();
   const str = String(value).trim();
@@ -164,7 +208,13 @@ const Venta = {
     });
   },
 
-  getAllPaginated: (limit, offset, sortBy = "VentaId", sortOrder = "ASC") => {
+  getAllPaginated: (
+    limit,
+    offset,
+    sortBy = "VentaId",
+    sortOrder = "ASC",
+    filters = {}
+  ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
         "VentaId",
@@ -185,8 +235,10 @@ const Venta = {
         ? sortOrder.toUpperCase()
         : "ASC";
 
+      const { whereSql, params: filterParams } = buildVentaFiltersWhere(filters);
+
       const query = `
-        SELECT v.*, 
+        SELECT v.*,
           c.ClienteNombre, c.ClienteApellido,
           a.AlmacenNombre,
           u.UsuarioNombre
@@ -194,13 +246,31 @@ const Venta = {
         LEFT JOIN clientes c ON v.ClienteId = c.ClienteId
         LEFT JOIN almacen a ON v.AlmacenId = a.AlmacenId
         LEFT JOIN usuario u ON v.VentaUsuario = u.UsuarioId
-        ORDER BY v.${sortField} ${order} 
+        LEFT JOIN ventacredito vc ON vc.VentaId = v.VentaId
+        LEFT JOIN (
+          SELECT VentaCreditoId, SUM(VentaCreditoPagoMonto) AS TotalPagos
+          FROM ventacreditopago
+          GROUP BY VentaCreditoId
+        ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
+        ${whereSql}
+        ORDER BY v.${sortField} ${order}
         LIMIT ? OFFSET ?`;
 
-      db.query(query, [limit, offset], (err, results) => {
+      db.query(query, [...filterParams, limit, offset], (err, results) => {
         if (err) return reject(err);
 
-        db.query("SELECT COUNT(*) as total FROM venta", (err, countResult) => {
+        const countQuery = `
+          SELECT COUNT(*) as total
+          FROM venta v
+          LEFT JOIN ventacredito vc ON vc.VentaId = v.VentaId
+          LEFT JOIN (
+            SELECT VentaCreditoId, SUM(VentaCreditoPagoMonto) AS TotalPagos
+            FROM ventacreditopago
+            GROUP BY VentaCreditoId
+          ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
+          ${whereSql}`;
+
+        db.query(countQuery, filterParams, (err, countResult) => {
           if (err) return reject(err);
 
           resolve({
@@ -217,7 +287,8 @@ const Venta = {
     limit,
     offset,
     sortBy = "VentaId",
-    sortOrder = "ASC"
+    sortOrder = "ASC",
+    filters = {}
   ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
@@ -261,8 +332,16 @@ const Venta = {
           break;
       }
 
+      const { whereSql: filtersWhereSql, params: filterParams } =
+        buildVentaFiltersWhere(filters);
+      // filtersWhereSql viene con "WHERE ..." o "" — para AND-combinar con la
+      // búsqueda convertimos a cláusula AND y quitamos el prefijo.
+      const filtersAndClause = filtersWhereSql
+        ? ` AND ${filtersWhereSql.replace(/^WHERE\s+/, "")}`
+        : "";
+
       const searchQuery = `
-        SELECT v.*, 
+        SELECT v.*,
           c.ClienteNombre, c.ClienteApellido,
           a.AlmacenNombre,
           u.UsuarioNombre
@@ -270,14 +349,20 @@ const Venta = {
         LEFT JOIN clientes c ON v.ClienteId = c.ClienteId
         LEFT JOIN almacen a ON v.AlmacenId = a.AlmacenId
         LEFT JOIN usuario u ON v.VentaUsuario = u.UsuarioId
-        WHERE 
-          CAST(v.VentaId AS CHAR) = ? 
+        LEFT JOIN ventacredito vc ON vc.VentaId = v.VentaId
+        LEFT JOIN (
+          SELECT VentaCreditoId, SUM(VentaCreditoPagoMonto) AS TotalPagos
+          FROM ventacreditopago
+          GROUP BY VentaCreditoId
+        ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
+        WHERE (
+          CAST(v.VentaId AS CHAR) = ?
           OR DATE_FORMAT(v.VentaFecha, '%Y-%m-%d %H:%i:%s') LIKE ?
           OR LOWER(CONCAT(COALESCE(c.ClienteNombre, ''), ' ', COALESCE(c.ClienteApellido, ''))) LIKE LOWER(?)
           OR LOWER(COALESCE(a.AlmacenNombre, '')) LIKE LOWER(?)
           OR v.VentaTipo = ?
           OR LOWER(
-            CASE v.VentaTipo 
+            CASE v.VentaTipo
               WHEN 'CO' THEN 'contado'
               WHEN 'CR' THEN 'credito'
               WHEN 'PO' THEN 'pos'
@@ -289,6 +374,7 @@ const Venta = {
           OR LOWER(COALESCE(u.UsuarioNombre, '')) LIKE LOWER(?)
           OR CAST(v.Total AS CHAR) = ?
           OR LOWER(COALESCE(v.VentaEntrega, '')) LIKE LOWER(?)
+        )${filtersAndClause}
         ORDER BY v.${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
@@ -298,7 +384,7 @@ const Venta = {
       // Para búsqueda parcial de texto
       const likeValue = `%${term}%`;
 
-      const values = [
+      const searchParams = [
         exactValue, // VentaId
         likeValue, // VentaFecha
         likeValue, // Cliente nombre completo
@@ -310,9 +396,9 @@ const Venta = {
         likeValue, // UsuarioNombre
         exactValue, // Total
         likeValue, // VentaEntrega
-        limit,
-        offset,
       ];
+
+      const values = [...searchParams, ...filterParams, limit, offset];
 
       db.query(searchQuery, values, (err, results) => {
         if (err) {
@@ -321,19 +407,25 @@ const Venta = {
         }
 
         const countQuery = `
-          SELECT COUNT(*) as total 
+          SELECT COUNT(*) as total
           FROM venta v
           LEFT JOIN clientes c ON v.ClienteId = c.ClienteId
           LEFT JOIN almacen a ON v.AlmacenId = a.AlmacenId
           LEFT JOIN usuario u ON v.VentaUsuario = u.UsuarioId
-          WHERE 
-            CAST(v.VentaId AS CHAR) = ? 
+          LEFT JOIN ventacredito vc ON vc.VentaId = v.VentaId
+          LEFT JOIN (
+            SELECT VentaCreditoId, SUM(VentaCreditoPagoMonto) AS TotalPagos
+            FROM ventacreditopago
+            GROUP BY VentaCreditoId
+          ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
+          WHERE (
+            CAST(v.VentaId AS CHAR) = ?
             OR DATE_FORMAT(v.VentaFecha, '%Y-%m-%d %H:%i:%s') LIKE ?
             OR LOWER(CONCAT(COALESCE(c.ClienteNombre, ''), ' ', COALESCE(c.ClienteApellido, ''))) LIKE LOWER(?)
             OR LOWER(COALESCE(a.AlmacenNombre, '')) LIKE LOWER(?)
             OR v.VentaTipo = ?
             OR LOWER(
-              CASE v.VentaTipo 
+              CASE v.VentaTipo
                 WHEN 'CO' THEN 'contado'
                 WHEN 'CR' THEN 'credito'
                 WHEN 'PO' THEN 'pos'
@@ -345,21 +437,10 @@ const Venta = {
             OR LOWER(COALESCE(u.UsuarioNombre, '')) LIKE LOWER(?)
             OR CAST(v.Total AS CHAR) = ?
             OR LOWER(COALESCE(v.VentaEntrega, '')) LIKE LOWER(?)
+          )${filtersAndClause}
         `;
 
-        const countValues = [
-          exactValue, // VentaId
-          likeValue, // VentaFecha
-          likeValue, // Cliente nombre completo
-          likeValue, // AlmacenNombre
-          tipoVentaSearch, // VentaTipo (código exacto)
-          likeValue, // VentaTipo (nombre descriptivo)
-          likeValue, // VentaPagoTipo
-          exactValue, // VentaCantidadProductos
-          likeValue, // UsuarioNombre
-          exactValue, // Total
-          likeValue, // VentaEntrega
-        ];
+        const countValues = [...searchParams, ...filterParams];
 
         db.query(countQuery, countValues, (err, countResult) => {
           if (err) {
@@ -399,7 +480,7 @@ const Venta = {
         params.push(localId);
       }
 
-      query += ` HAVING Saldo > 0 ORDER BY v.VentaFecha ASC`;
+      query += ` AND (v.Total - COALESCE(v.VentaEntrega, 0)) > 0 ORDER BY v.VentaFecha ASC`;
 
       db.query(query, params, (err, results) => {
         if (err) {
@@ -432,8 +513,8 @@ const Venta = {
         JOIN clientes c ON v.ClienteId = c.ClienteId
         WHERE v.VentaTipo = 'CR'
         GROUP BY c.ClienteId, c.ClienteNombre, c.ClienteApellido
-        HAVING Saldo > 0
-        ORDER BY Cliente
+        HAVING SUM(v.Total - COALESCE(v.VentaEntrega,0)) > 0
+        ORDER BY CONCAT(TRIM(c.ClienteNombre), ' ', TRIM(c.ClienteApellido))
       `;
       db.query(query, (err, results) => {
         if (err) return reject(err);
@@ -469,70 +550,48 @@ const Venta = {
 
         const ventasParams = esTodos ? [fechaDesde, fechaHasta] : [fechaDesde, fechaHasta, clienteId];
 
-        db.query(
-          ventasQuery,
-          ventasParams,
-          async (err, ventasResults) => {
-            if (err) return reject(err);
+        db.query(ventasQuery, ventasParams, (err, ventasResults) => {
+          if (err) return reject(err);
 
-            // Para cada venta, si es a crédito, obtener información de crédito y pagos
-            const ventasConDetalle = await Promise.all(
-              ventasResults.map(async (venta) => {
-                const ventaDetalle = {
-                  ...venta,
-                  SaldoPendiente: 0,
-                  Pagos: [],
-                };
+          // Sin ventas: devolver vacío sin más queries.
+          if (ventasResults.length === 0) {
+            return resolve({
+              cliente: {
+                ClienteId: cliente.ClienteId,
+                ClienteNombre: cliente.ClienteNombre,
+                ClienteApellido: cliente.ClienteApellido,
+                ClienteRUC: cliente.ClienteRUC,
+              },
+              fechaDesde,
+              fechaHasta,
+              ventas: ventasResults.map((v) => ({
+                ...v,
+                SaldoPendiente: 0,
+                Pagos: [],
+              })),
+            });
+          }
 
-                // Si es venta a crédito, obtener información de crédito
-                if (venta.VentaTipo === "CR") {
-                  // Calcular saldo pendiente
-                  const total = Number(venta.Total) || 0;
-                  const entrega = Number(venta.VentaEntrega) || 0;
-                  ventaDetalle.SaldoPendiente = total - entrega;
+          // IDs de ventas a crédito (único set que va a tener ventacredito).
+          const creditoVentaIds = ventasResults
+            .filter((v) => v.VentaTipo === "CR")
+            .map((v) => v.VentaId);
 
-                  // Obtener información de crédito
-                  const creditoQuery =
-                    "SELECT * FROM ventacredito WHERE VentaId = ?";
+          const finalize = (creditosByVentaId, pagosByCreditoId) => {
+            const ventasConDetalle = ventasResults.map((venta) => {
+              const base = { ...venta, SaldoPendiente: 0, Pagos: [] };
+              if (venta.VentaTipo !== "CR") return base;
 
-                  await new Promise((resolveCredito, rejectCredito) => {
-                    db.query(
-                      creditoQuery,
-                      [venta.VentaId],
-                      (err, creditoResults) => {
-                        if (err) return rejectCredito(err);
+              const total = Number(venta.Total) || 0;
+              const entrega = Number(venta.VentaEntrega) || 0;
+              base.SaldoPendiente = total - entrega;
 
-                        if (creditoResults.length > 0) {
-                          const ventaCreditoId =
-                            creditoResults[0].VentaCreditoId;
-
-                          // Obtener pagos del crédito
-                          const pagosQuery = `
-                        SELECT * FROM ventacreditopago 
-                        WHERE VentaCreditoId = ?
-                        ORDER BY VentaCreditoPagoFecha ASC, VentaCreditoPagoId ASC
-                      `;
-
-                          db.query(
-                            pagosQuery,
-                            [ventaCreditoId],
-                            (err, pagosResults) => {
-                              if (err) return rejectCredito(err);
-                              ventaDetalle.Pagos = pagosResults || [];
-                              resolveCredito();
-                            }
-                          );
-                        } else {
-                          resolveCredito();
-                        }
-                      }
-                    );
-                  });
-                }
-
-                return ventaDetalle;
-              })
-            );
+              const credito = creditosByVentaId.get(venta.VentaId);
+              if (credito) {
+                base.Pagos = pagosByCreditoId.get(credito.VentaCreditoId) || [];
+              }
+              return base;
+            });
 
             resolve({
               cliente: {
@@ -545,8 +604,51 @@ const Venta = {
               fechaHasta,
               ventas: ventasConDetalle,
             });
+          };
+
+          // Sin ventas a crédito: no hacen falta las otras 2 queries.
+          if (creditoVentaIds.length === 0) {
+            return finalize(new Map(), new Map());
           }
-        );
+
+          // Query #2: todos los ventacredito del set en una sola tirada.
+          db.query(
+            `SELECT * FROM ventacredito WHERE VentaId IN (?)`,
+            [creditoVentaIds],
+            (err, creditosResults) => {
+              if (err) return reject(err);
+
+              const creditosByVentaId = new Map(
+                creditosResults.map((c) => [c.VentaId, c])
+              );
+              const creditoIds = creditosResults.map((c) => c.VentaCreditoId);
+
+              if (creditoIds.length === 0) {
+                return finalize(creditosByVentaId, new Map());
+              }
+
+              // Query #3: todos los pagos del set, ordenados y agrupados en memoria.
+              db.query(
+                `SELECT * FROM ventacreditopago
+                 WHERE VentaCreditoId IN (?)
+                 ORDER BY VentaCreditoPagoFecha ASC, VentaCreditoPagoId ASC`,
+                [creditoIds],
+                (err, pagosResults) => {
+                  if (err) return reject(err);
+
+                  const pagosByCreditoId = new Map();
+                  for (const pago of pagosResults) {
+                    const arr = pagosByCreditoId.get(pago.VentaCreditoId);
+                    if (arr) arr.push(pago);
+                    else pagosByCreditoId.set(pago.VentaCreditoId, [pago]);
+                  }
+
+                  finalize(creditosByVentaId, pagosByCreditoId);
+                }
+              );
+            }
+          );
+        });
       };
 
       if (esTodos) {

@@ -26,6 +26,7 @@ interface PerfilesListProps {
   onSearch: (value: string) => void;
   onKeyPress?: React.KeyboardEventHandler<HTMLInputElement>;
   onSearchSubmit: () => void;
+  pagination?: { totalItems?: number };
 }
 
 // Definir tipo explícito para los permisos
@@ -50,6 +51,7 @@ export default function PerfilesList({
   onSearch,
   onKeyPress,
   onSearchSubmit,
+  pagination,
 }: PerfilesListProps) {
   const [formData, setFormData] = useState({
     PerfilDescripcion: "",
@@ -69,7 +71,7 @@ export default function PerfilesList({
 
   useEffect(() => {
     if (isModalOpen) {
-      getMenus(1, 1000).then((res) => {
+      getMenus(1, 200).then((res) => {
         const menusFiltrados = (res.data || []).filter(
           (menu: { MenuId: number; MenuNombre: string }) => {
             const nombre = menu.MenuNombre.toUpperCase();
@@ -212,6 +214,11 @@ export default function PerfilesList({
               icon={PlusIcon}
             />
           )}
+        </div>
+      </div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-gray-600">
+          Mostrando {perfiles.length} de {pagination?.totalItems ?? perfiles.length} perfiles
         </div>
       </div>
       <DataTable<Perfil>

@@ -11,6 +11,12 @@ import Pagination from "../../components/common/Pagination";
 import Swal from "sweetalert2";
 import { getProductosAll } from "../../services/productos.service";
 import { usePermiso } from "../../hooks/usePermiso";
+import { useAuth } from "../../contexts/useAuth";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 
 interface Combo {
   id: string | number;
@@ -48,6 +54,8 @@ export default function CombosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
 
+  const { user } = useAuth();
+
   const puedeCrear = usePermiso("COMBOS", "crear");
   const puedeEditar = usePermiso("COMBOS", "editar");
   const puedeEliminar = usePermiso("COMBOS", "eliminar");
@@ -75,8 +83,10 @@ export default function CombosPage() {
 
   useEffect(() => {
     fetchCombos();
-    getProductosAll().then((res) => setProductos(res.data));
-  }, [fetchCombos]);
+    const localUsuario = Number(user?.LocalId);
+    const filters = localUsuario ? { localIdOrZero: localUsuario } : undefined;
+    getProductosAll(filters).then((res) => setProductos(res.data));
+  }, [fetchCombos, user?.LocalId]);
 
   const handleDelete = async (id: string) => {
     Swal.fire({
@@ -166,9 +176,18 @@ export default function CombosPage() {
     }
   };
 
-  if (loading) return <div>Cargando combos...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!puedeLeer) return <div>No tienes permiso para ver los combos</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los combos" />;
+  if (loading) return <LoadingState message="Cargando combos..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchCombos();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -193,6 +212,7 @@ export default function CombosPage() {
         searchTerm={searchTerm}
         onKeyPress={handleKeyPress}
         onSearchSubmit={applySearch}
+        pagination={combosData.pagination}
       />
       <Pagination
         currentPage={currentPage}

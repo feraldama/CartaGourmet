@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import ClienteFormModal from "./ClienteFormModal";
 import type { Cliente } from "./ClienteFormModal";
+import { Button, TextInput, Badge } from "./ui";
+import { formatMiles } from "../../utils/utils";
 
 interface ClienteModalProps {
   show: boolean;
@@ -33,21 +35,21 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
   const clientesFiltrados = useMemo(() => {
     return clientes.filter(
       (c) =>
-        c.ClienteRUC.toLowerCase().includes(filtros.ruc.toLowerCase()) &&
-        c.ClienteNombre.toLowerCase().includes(filtros.nombre.toLowerCase()) &&
+        c.ClienteRUC?.toLowerCase().includes(filtros.ruc.toLowerCase()) &&
+        c.ClienteNombre?.toLowerCase().includes(filtros.nombre.toLowerCase()) &&
         (c.ClienteApellido || "")
-          .toLowerCase()
+          ?.toLowerCase()
           .includes(filtros.apellido.toLowerCase()) &&
         (c.ClienteTelefono || "")
-          .toLowerCase()
-          .includes(filtros.telefono.toLowerCase())
+          ?.toLowerCase()
+          .includes(filtros.telefono.toLowerCase()),
     );
   }, [clientes, filtros]);
 
   const totalPages = Math.ceil(clientesFiltrados.length / rowsPerPage);
   const paginatedClientes = clientesFiltrados.slice(
     (page - 1) * rowsPerPage,
-    page * rowsPerPage
+    page * rowsPerPage,
   );
 
   const handleCreateSubmit = (cliente: Cliente) => {
@@ -62,138 +64,132 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black opacity-50" />
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl p-6 relative">
+      <div className="bg-surface rounded-lg shadow-modal w-full max-w-4xl max-h-[90vh] p-6 relative flex flex-col">
         <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl cursor-pointer"
+          aria-label="Cerrar"
+          className="absolute top-4 right-4 text-text-subtle hover:text-text transition-colors duration-150 cursor-pointer"
           onClick={onClose}
         >
-          &times;
+          <XMarkIcon className="w-5 h-5" />
         </button>
         <div className="flex justify-between items-center mb-4 pr-8">
-          <h2 className="text-2xl font-semibold text-gray-800">
-            Buscar Cliente
-          </h2>
+          <h2 className="text-xl font-semibold text-text">Buscar Cliente</h2>
           {onCreateCliente && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={PlusIcon}
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
-              <PlusIcon className="w-4 h-4" />
               Nuevo Cliente
-            </button>
+            </Button>
           )}
         </div>
-        <div className="bg-gray-50 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                RUC
-              </label>
-              <input
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-                placeholder="Buscar"
-                value={filtros.ruc}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, ruc: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Nombre
-              </label>
-              <input
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-                placeholder="Buscar"
-                value={filtros.nombre}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, nombre: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Apellido
-              </label>
-              <input
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-                placeholder="Buscar"
-                value={filtros.apellido}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, apellido: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Teléfono
-              </label>
-              <input
-                className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-                placeholder="Buscar"
-                value={filtros.telefono}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, telefono: e.target.value }))
-                }
-              />
-            </div>
+        <div className="bg-surface-sunken rounded-md p-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <TextInput
+              label="RUC"
+              size="sm"
+              placeholder="Buscar"
+              value={filtros.ruc}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, ruc: e.target.value }))
+              }
+            />
+            <TextInput
+              label="Nombre"
+              size="sm"
+              placeholder="Buscar"
+              value={filtros.nombre}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, nombre: e.target.value }))
+              }
+            />
+            <TextInput
+              label="Apellido"
+              size="sm"
+              placeholder="Buscar"
+              value={filtros.apellido}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, apellido: e.target.value }))
+              }
+            />
+            <TextInput
+              label="Teléfono"
+              size="sm"
+              placeholder="Buscar"
+              value={filtros.telefono}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, telefono: e.target.value }))
+              }
+            />
           </div>
         </div>
-        <div className="overflow-x-auto rounded-lg">
-          <table className="min-w-full bg-white">
-            <thead>
-              <tr className="bg-gray-50 text-gray-600 text-sm">
-                <th className="py-2 px-4 text-left">RUC</th>
-                <th className="py-2 px-4 text-left">Nombre</th>
-                <th className="py-2 px-4 text-left">Apellido</th>
-                <th className="py-2 px-4 text-left">Teléfono</th>
-                <th className="py-2 px-4 text-left">Tipo</th>
+        <div className="overflow-auto rounded-md border border-border flex-1 min-h-0">
+          <table className="min-w-full bg-surface text-sm">
+            <thead className="sticky top-0 bg-surface-sunken z-10">
+              <tr className="text-text-muted">
+                <th className="py-2 px-4 text-left font-medium">RUC</th>
+                <th className="py-2 px-4 text-left font-medium">Nombre</th>
+                <th className="py-2 px-4 text-left font-medium">Apellido</th>
+                <th className="py-2 px-4 text-left font-medium">Teléfono</th>
+                <th className="py-2 px-4 text-left font-medium">Tipo</th>
               </tr>
             </thead>
             <tbody>
               {paginatedClientes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-4 text-gray-400">
+                  <td colSpan={5} className="text-center py-4 text-text-subtle">
                     No hay clientes
                   </td>
                 </tr>
               )}
-              {paginatedClientes.map((c) => (
+              {paginatedClientes.map((c, idx) => (
                 <tr
                   key={c.ClienteId}
-                  className="hover:bg-blue-50 cursor-pointer transition"
+                  className={`${
+                    idx % 2 === 1 ? "bg-surface-sunken/50" : ""
+                  } hover:bg-brand-50 cursor-pointer transition-colors duration-150`}
                   onClick={() => onSelect(c)}
                 >
-                  <td className="py-2 px-4">{c.ClienteRUC || ""}</td>
+                  <td className="py-2 px-4 font-num">{c.ClienteRUC || ""}</td>
                   <td className="py-2 px-4">{c.ClienteNombre}</td>
                   <td className="py-2 px-4">{c.ClienteApellido || ""}</td>
-                  <td className="py-2 px-4">{c.ClienteTelefono || ""}</td>
+                  <td className="py-2 px-4 font-num">
+                    {c.ClienteTelefono || ""}
+                  </td>
                   <td className="py-2 px-4">
-                    {c.ClienteTipo === "MI"
-                      ? "Minorista"
-                      : c.ClienteTipo === "MA"
-                      ? "Mayorista"
-                      : c.ClienteTipo}
+                    {c.ClienteTipo === "MI" ? (
+                      <Badge tone="neutral">Minorista</Badge>
+                    ) : c.ClienteTipo === "MA" ? (
+                      <Badge tone="info">Mayorista</Badge>
+                    ) : (
+                      c.ClienteTipo
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {/* Paginación */}
         <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-text-muted font-num">
             {clientesFiltrados.length === 0
               ? "0"
-              : `${(page - 1) * rowsPerPage + 1} to ${Math.min(
-                  page * rowsPerPage,
-                  clientesFiltrados.length
-                )} of ${clientesFiltrados.length}`}
+              : `${formatMiles((page - 1) * rowsPerPage + 1)} a ${formatMiles(
+                  Math.min(page * rowsPerPage, clientesFiltrados.length),
+                )} de ${formatMiles(clientesFiltrados.length)}`}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm">Filas por página:</span>
+            <label
+              htmlFor="cliente-modal-rows"
+              className="text-sm text-text-muted"
+            >
+              Filas por página:
+            </label>
             <select
-              className="border border-gray-200 rounded px-2 py-1 text-sm"
+              id="cliente-modal-rows"
+              className="bg-surface border border-border rounded-md px-2 py-1 text-sm text-text focus:outline-none focus:ring-2 focus:ring-brand-600/30 focus:border-brand-600"
               value={rowsPerPage}
               onChange={(e) => {
                 setRowsPerPage(Number(e.target.value));
@@ -208,20 +204,22 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              className="px-3 py-1 rounded text-gray-500 border border-gray-200 disabled:opacity-50"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
             >
               Anterior
-            </button>
-            <button
-              className="px-3 py-1 rounded text-gray-500 border border-gray-200 disabled:opacity-50"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages || totalPages === 0}
             >
               Siguiente
-            </button>
+            </Button>
           </div>
         </div>
 

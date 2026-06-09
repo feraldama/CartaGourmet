@@ -20,6 +20,8 @@ router.get(
   authMiddleware,
   ventaController.getReporteVentasPorCliente
 );
+router.post("/confirmar", authMiddleware, ventaController.confirmar);
+router.post("/devolucion", authMiddleware, ventaController.devolucion);
 router.get("/search", authMiddleware, ventaController.searchVentas);
 router.get("/", authMiddleware, ventaController.getAll);
 router.get("/paginated", authMiddleware, ventaController.getAllPaginated);

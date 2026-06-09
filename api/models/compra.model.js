@@ -1,5 +1,45 @@
 const db = require("../config/db");
 
+/**
+ * Construye la cláusula WHERE para filtros de compras.
+ * - Tipo (CO/CR)
+ * - Proveedor (ProveedorId)
+ * - Almacén: usa EXISTS contra compraproducto porque AlmacenId de la compra
+ *   se deriva del primer producto; una compra puede tener productos en
+ *   distintos almacenes, así que filtramos por "tiene al menos un producto
+ *   en este almacén".
+ * - Rango de fechas sobre CompraFecha.
+ */
+function buildCompraFiltersWhere(filters = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (filters.tipo) {
+    conditions.push("c.CompraTipo = ?");
+    params.push(filters.tipo);
+  }
+  if (filters.proveedorId) {
+    conditions.push("c.ProveedorId = ?");
+    params.push(Number(filters.proveedorId));
+  }
+  if (filters.almacenId) {
+    conditions.push(
+      "EXISTS (SELECT 1 FROM compraproducto cpf WHERE cpf.CompraId = c.CompraId AND cpf.AlmacenOrigenId = ?)"
+    );
+    params.push(Number(filters.almacenId));
+  }
+  if (filters.fechaDesde) {
+    conditions.push("DATE(c.CompraFecha) >= ?");
+    params.push(filters.fechaDesde);
+  }
+  if (filters.fechaHasta) {
+    conditions.push("DATE(c.CompraFecha) <= ?");
+    params.push(filters.fechaHasta);
+  }
+
+  return { conditions, params };
+}
+
 const Compra = {
   getAll: () => {
     return new Promise((resolve, reject) => {
@@ -10,7 +50,7 @@ const Compra = {
          FROM compra c 
          LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId 
          LEFT JOIN compraproducto cp ON c.CompraId = cp.CompraId
-         GROUP BY c.CompraId
+         GROUP BY c.CompraId, p.ProveedorId, p.ProveedorId
          ORDER BY c.CompraFecha DESC`,
         (err, results) => {
           if (err) reject(err);
@@ -30,7 +70,7 @@ const Compra = {
          LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId 
          LEFT JOIN compraproducto cp ON c.CompraId = cp.CompraId
          WHERE c.CompraId = ?
-         GROUP BY c.CompraId`,
+         GROUP BY c.CompraId, p.ProveedorId, p.ProveedorId`,
         [id],
         (err, results) => {
           if (err) return reject(err);
@@ -40,7 +80,13 @@ const Compra = {
     });
   },
 
-  getAllPaginated: (limit, offset, sortBy = "CompraId", sortOrder = "DESC") => {
+  getAllPaginated: (
+    limit,
+    offset,
+    sortBy = "CompraId",
+    sortOrder = "DESC",
+    filters = {}
+  ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
         "CompraId",
@@ -62,36 +108,53 @@ const Compra = {
         : "DESC";
 
       const orderByField = sortField === "Total" ? "Total" : `c.${sortField}`;
+      const { conditions, params: filterParams } =
+        buildCompraFiltersWhere(filters);
+      const whereSql = conditions.length
+        ? `WHERE ${conditions.join(" AND ")}`
+        : "";
+
       db.query(
-        `SELECT c.*, p.ProveedorNombre, p.ProveedorRUC, 
+        `SELECT c.*, p.ProveedorNombre, p.ProveedorRUC,
          COALESCE(SUM(cp.CompraProductoPrecio * cp.CompraProductoCantidad), 0) as Total,
          (SELECT AlmacenOrigenId FROM compraproducto WHERE CompraId = c.CompraId LIMIT 1) as AlmacenId
-         FROM compra c 
-         LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId 
+         FROM compra c
+         LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId
          LEFT JOIN compraproducto cp ON c.CompraId = cp.CompraId
-         GROUP BY c.CompraId
+         ${whereSql}
+         GROUP BY c.CompraId, p.ProveedorId, p.ProveedorId
          ORDER BY ${orderByField} ${order} LIMIT ? OFFSET ?`,
-        [limit, offset],
+        [...filterParams, limit, offset],
         (err, results) => {
           if (err) return reject(err);
 
-          db.query(
-            "SELECT COUNT(*) as total FROM compra",
-            (err, countResult) => {
-              if (err) return reject(err);
+          const countQuery = `
+            SELECT COUNT(DISTINCT c.CompraId) as total
+            FROM compra c
+            LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId
+            ${whereSql}`;
 
-              resolve({
-                compras: results,
-                total: countResult[0].total,
-              });
-            }
-          );
+          db.query(countQuery, filterParams, (err, countResult) => {
+            if (err) return reject(err);
+
+            resolve({
+              compras: results,
+              total: countResult[0].total,
+            });
+          });
         }
       );
     });
   },
 
-  search: (term, limit, offset, sortBy = "CompraId", sortOrder = "DESC") => {
+  search: (
+    term,
+    limit,
+    offset,
+    sortBy = "CompraId",
+    sortOrder = "DESC",
+    filters = {}
+  ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
         "CompraId",
@@ -113,6 +176,12 @@ const Compra = {
         : "DESC";
 
       const orderByField = sortField === "Total" ? "Total" : `c.${sortField}`;
+      const { conditions: filterConditions, params: filterParams } =
+        buildCompraFiltersWhere(filters);
+      const filtersAndClause = filterConditions.length
+        ? ` AND ${filterConditions.join(" AND ")}`
+        : "";
+
       const searchQuery = `
         SELECT c.*, p.ProveedorNombre, p.ProveedorRUC,
         COALESCE(SUM(cp.CompraProductoPrecio * cp.CompraProductoCantidad), 0) as Total,
@@ -120,32 +189,33 @@ const Compra = {
         FROM compra c
         LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId
         LEFT JOIN compraproducto cp ON c.CompraId = cp.CompraId
-        WHERE c.CompraFactura LIKE ? 
-        OR c.CompraTipo LIKE ? 
-        OR p.ProveedorNombre LIKE ?
-        GROUP BY c.CompraId
+        WHERE (c.CompraFactura LIKE ?
+          OR c.CompraTipo LIKE ?
+          OR p.ProveedorNombre LIKE ?)${filtersAndClause}
+        GROUP BY c.CompraId, p.ProveedorId
         ORDER BY ${orderByField} ${order}
         LIMIT ? OFFSET ?
       `;
       const searchValue = `%${term}%`;
+      const searchParams = [searchValue, searchValue, searchValue];
 
       db.query(
         searchQuery,
-        [searchValue, searchValue, searchValue, limit, offset],
+        [...searchParams, ...filterParams, limit, offset],
         (err, results) => {
           if (err) return reject(err);
 
           const countQuery = `
-            SELECT COUNT(*) as total FROM compra c
+            SELECT COUNT(DISTINCT c.CompraId) as total FROM compra c
             LEFT JOIN proveedor p ON c.ProveedorId = p.ProveedorId
-            WHERE c.CompraFactura LIKE ? 
-            OR c.CompraTipo LIKE ? 
-            OR p.ProveedorNombre LIKE ?
+            WHERE (c.CompraFactura LIKE ?
+              OR c.CompraTipo LIKE ?
+              OR p.ProveedorNombre LIKE ?)${filtersAndClause}
           `;
 
           db.query(
             countQuery,
-            [searchValue, searchValue, searchValue],
+            [...searchParams, ...filterParams],
             (err, countResult) => {
               if (err) return reject(err);
 

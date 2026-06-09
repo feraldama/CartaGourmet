@@ -1,4 +1,5 @@
 const Caja = require("../models/caja.model");
+const { sendError } = require("../utils/errors");
 const db = require("../config/db");
 
 exports.getAll = async (req, res) => {
@@ -19,7 +20,8 @@ exports.getAll = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -31,7 +33,8 @@ exports.getById = async (req, res) => {
     }
     res.json(caja);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -40,7 +43,8 @@ exports.create = async (req, res) => {
     const caja = await Caja.create(req.body);
     res.status(201).json({ message: "Caja creada exitosamente", data: caja });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -52,7 +56,8 @@ exports.update = async (req, res) => {
     }
     res.json({ message: "Caja actualizada exitosamente", data: caja });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -64,6 +69,7 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Caja eliminada exitosamente" });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -74,7 +80,7 @@ exports.delete = async (req, res) => {
           "No se puede eliminar la caja porque tiene movimientos asociados.",
       });
     }
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -111,6 +117,7 @@ exports.searchCajas = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar cajas" });
   }
 };
@@ -131,6 +138,7 @@ exports.updateMonto = async (req, res) => {
     ]);
     res.json(updatedCaja[0]);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };

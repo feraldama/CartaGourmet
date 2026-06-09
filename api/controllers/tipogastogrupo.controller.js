@@ -1,4 +1,5 @@
 const TipoGastoGrupo = require("../models/tipogastogrupo.model");
+const { sendError } = require("../utils/errors");
 const TipoGasto = require("../models/tipogasto.model");
 
 exports.getAll = async (req, res) => {
@@ -6,7 +7,8 @@ exports.getAll = async (req, res) => {
     const grupos = await TipoGastoGrupo.getAll();
     res.json(grupos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -16,7 +18,8 @@ exports.getById = async (req, res) => {
     if (!grupo) return res.status(404).json({ message: "No encontrado" });
     res.json(grupo);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -27,7 +30,8 @@ exports.getByTipoGastoId = async (req, res) => {
     );
     res.json(grupos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -39,7 +43,8 @@ exports.create = async (req, res) => {
       .status(201)
       .json({ grupo, TipoGastoCantGastos: tipoGasto.TipoGastoCantGastos });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -52,7 +57,8 @@ exports.update = async (req, res) => {
     if (!grupo) return res.status(404).json({ message: "No encontrado" });
     res.json(grupo);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -70,6 +76,7 @@ exports.delete = async (req, res) => {
     if (!tipoGastoId) return res.status(404).json({ message: "No encontrado" });
     res.json({ message: "Eliminado correctamente", TipoGastoCantGastos });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -81,7 +88,7 @@ exports.delete = async (req, res) => {
       });
     }
     if (error && error.message) {
-      res.status(400).json({ message: error.message });
+      sendError(res, error, 400);
     } else {
       res.status(500).json({ message: "Error interno del servidor" });
     }

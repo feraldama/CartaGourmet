@@ -2,11 +2,29 @@
 import api from "./api";
 import type { AxiosError } from "axios";
 
+export interface UsuarioFilters {
+  estado?: "A" | "I";
+  admin?: "S" | "N";
+  localId?: number | string;
+}
+
+const applyUsuarioFilters = (
+  params: { [key: string]: string | number | undefined },
+  filters?: UsuarioFilters
+) => {
+  if (!filters) return;
+  if (filters.estado) params.estado = filters.estado;
+  if (filters.admin) params.admin = filters.admin;
+  if (filters.localId != null && filters.localId !== "")
+    params.localId = filters.localId;
+};
+
 export const getUsuarios = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: UsuarioFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     page,
@@ -14,6 +32,7 @@ export const getUsuarios = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyUsuarioFilters(params, filters);
   try {
     const response = await api.get("/usuarios", { params });
     return response.data;
@@ -100,7 +119,8 @@ export const searchUsuarios = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: UsuarioFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     q: searchTerm,
@@ -109,6 +129,7 @@ export const searchUsuarios = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyUsuarioFilters(params, filters);
   try {
     const response = await api.get("/usuarios/search", { params });
     return response.data;

@@ -1,11 +1,13 @@
 const VentaProducto = require("../models/ventaproducto.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   try {
     const ventaProductos = await VentaProducto.getAll();
     res.json(ventaProductos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -34,7 +36,8 @@ exports.getAllPaginated = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -51,7 +54,8 @@ exports.getById = async (req, res) => {
     }
     res.json(ventaProducto);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -60,7 +64,8 @@ exports.getByVentaId = async (req, res) => {
     const ventaProductos = await VentaProducto.getByVentaId(req.params.ventaId);
     res.json(ventaProductos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -72,7 +77,8 @@ exports.create = async (req, res) => {
       data: ventaProducto,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -93,7 +99,8 @@ exports.update = async (req, res) => {
       data: ventaProducto,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -110,7 +117,8 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Producto de venta eliminado exitosamente" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -147,6 +155,7 @@ exports.searchVentaProductos = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar productos de venta" });
   }
 };

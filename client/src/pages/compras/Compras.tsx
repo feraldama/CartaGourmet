@@ -1,13 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import SearchButton from "../../components/common/Input/SearchButton";
 import "../../App.css";
-import { getProductosAll } from "../../services/productos.service";
+import {
+  getProductosPaginated,
+  searchProductos,
+} from "../../services/productos.service";
+import Pagination from "../../components/common/Pagination";
 import ProductCard from "../../components/products/ProductCard";
 import { useAuth } from "../../contexts/useAuth";
 import Swal from "sweetalert2";
-import axios from "axios";
-import { js2xml } from "xml-js";
-import logo from "../../assets/img/logo.jpg";
+import { confirmarCompra } from "../../services/compras.service";
+import { usePermiso } from "../../hooks/usePermiso";
+import { PermissionDenied } from "../../components/common/ui";
+import { resolveProductoImagen } from "../../utils/productImage";
 import {
   getAllProveedoresSinPaginacion,
   createProveedor,
@@ -20,13 +25,7 @@ import { getEstadoAperturaPorUsuario } from "../../services/registrodiariocaja.s
 import { getCajaById } from "../../services/cajas.service";
 import { getLocalById } from "../../services/locales.service";
 
-interface Proveedor {
-  ProveedorId: number;
-  ProveedorRUC: string;
-  ProveedorNombre: string;
-  ProveedorDireccion?: string;
-  ProveedorTelefono?: string;
-}
+import type { Proveedor } from "../../types";
 
 interface CreateProveedorData {
   ProveedorRUC: string;
@@ -35,15 +34,10 @@ interface CreateProveedorData {
   ProveedorTelefono?: string;
 }
 
-interface Caja {
-  id: string | number;
-  CajaId: string | number;
-  CajaDescripcion: string;
-  CajaMonto: number;
-  [key: string]: unknown;
-}
+import type { Caja } from "../../types";
 
 export default function Compras() {
+  const puedeLeerCompras = usePermiso("NUEVACOMPRA", "leer");
   const [carrito, setCarrito] = useState<
     {
       id: number;
@@ -59,6 +53,15 @@ export default function Compras() {
     }[]
   >([]);
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaDebounced, setBusquedaDebounced] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    itemsPerPage: 10,
+  });
   const [productos, setProductos] = useState<
     {
       ProductoId: number;
@@ -67,7 +70,7 @@ export default function Compras() {
       ProductoPrecioVenta: number;
       ProductoPrecioPromedio?: string;
       ProductoStock: number;
-      ProductoImagen?: string;
+      HasImagen?: number | boolean;
       ProductoPrecioVentaMayorista: number;
       LocalId: string | number;
       ProductoPrecioUnitario: number;
@@ -99,6 +102,8 @@ export default function Compras() {
   );
   const cantidadRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addFirstOnNextResultsRef = useRef(false);
 
   useEffect(() => {
     if (selectedProductId !== null && cantidadRefs.current[selectedProductId]) {
@@ -184,14 +189,73 @@ export default function Compras() {
     setCompraEntrega(total);
   }, [total]);
 
-  useEffect(() => {
+  // Carga paginada de productos (antes se traía todo el catálogo al entrar,
+  // lo que demoraba varios segundos). Con paginación + búsqueda remota cada
+  // pedido devuelve sólo la página visible.
+  const fetchProductos = useCallback(async () => {
     setLoading(true);
-    getProductosAll()
-      .then((data) => {
-        setProductos(data.data || []);
-      })
-      .finally(() => setLoading(false));
+    try {
+      // El backend filtra por el local del usuario incluyendo los productos
+      // "universales" (LocalId=0). Así la paginación ya devuelve exactamente
+      // los ítems visibles y no quedan páginas incompletas.
+      const localUsuario = Number(user?.LocalId);
+      const filters = localUsuario ? { localIdOrZero: localUsuario } : undefined;
+      const data = busquedaDebounced.trim()
+        ? await searchProductos(
+            busquedaDebounced.trim(),
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters,
+          )
+        : await getProductosPaginated(
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters,
+          );
 
+      setProductos(data.data || []);
+      setPagination({
+        totalItems: data.pagination?.totalItems || 0,
+        totalPages: data.pagination?.totalPages || 1,
+        currentPage: data.pagination?.currentPage || 1,
+        itemsPerPage: data.pagination?.itemsPerPage || itemsPerPage,
+      });
+    } catch (error) {
+      console.error("Error al cargar productos:", error);
+      setProductos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [busquedaDebounced, currentPage, itemsPerPage, user?.LocalId]);
+
+  useEffect(() => {
+    fetchProductos();
+  }, [fetchProductos]);
+
+  // Debounce de 500ms entre lo que se tipea y la búsqueda remota.
+  useEffect(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setCurrentPage(1);
+    const timeoutId = setTimeout(() => {
+      setBusquedaDebounced(busqueda);
+      debounceTimeoutRef.current = null;
+    }, 500);
+    debounceTimeoutRef.current = timeoutId;
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+    };
+  }, [busqueda]);
+
+  useEffect(() => {
     getAllProveedoresSinPaginacion()
       .then((data) => {
         setProveedores(data.data || []);
@@ -289,80 +353,42 @@ export default function Compras() {
       return;
     }
 
-    // Formatear la fecha seleccionada al formato DD/MM/YY
-    // Parsear directamente del string para evitar problemas de zona horaria
-    const [añoCompleto, mesCompleto, diaCompleto] = compraFecha.split("-");
-    const diaFormato = parseInt(diaCompleto, 10);
-    const mesFormato = parseInt(mesCompleto, 10);
-    const añoFormato = parseInt(añoCompleto, 10) % 100;
-    const diaStr = diaFormato < 10 ? `0${diaFormato}` : diaFormato.toString();
-    const mesStr = mesFormato < 10 ? `0${mesFormato}` : mesFormato.toString();
-    const añoStr = añoFormato < 10 ? `0${añoFormato}` : añoFormato.toString();
-    const fechaFormateada = `${diaStr}/${mesStr}/${añoStr}`;
+    // Combino la fecha del input (YYYY-MM-DD) con la hora local actual para
+    // que CompraFecha (TIMESTAMP) registre el momento de confirmación.
+    const ahora = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const compraFechaConHora =
+      `${compraFecha}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}:` +
+      `${pad(ahora.getSeconds())}`;
 
-    // Mapear el carrito (CompraProductoId se asignará en GeneXus usando el contador &i)
-    const SDTCompraItem = carrito.map((p) => ({
-      ProveedorId: proveedorSeleccionado.ProveedorId,
-      Producto: {
-        ProductoId: p.id,
-        // CompraProductoId NO se envía aquí porque el SDT no lo tiene definido
-        // Se asignará automáticamente en GeneXus usando el contador &i
-        CompraProductoCantidad: p.cantidad,
-        CompraProductoPrecio: p.precioUnitario,
-        AlmacenId: user.LocalId || 1,
-        Bonificacion: 0,
-        CompraProductoCantidadUnidad: p.caja ? "C" : "U",
-      },
-    }));
-
-    const json = {
-      Envelope: {
-        _attributes: {
-          xmlns: "http://schemas.xmlsoap.org/soap/envelope/",
-        },
-        Body: {
-          "PCompraConfirmarWS.VENTACONFIRMAR": {
-            _attributes: { xmlns: "Tech" },
-            Sdtcompra: {
-              SDTCompraItem: SDTCompraItem,
-            },
-            Comprafechastring: fechaFormateada,
-            Comprafactura: parseInt(compraFactura),
-            Compratipo: compraTipo,
-            Entregado: compraEntrega,
-            Total: total,
-            Usuarioid: user.id,
-          },
-        },
-      },
-    };
-
-    const xml = js2xml(json, {
-      compact: true,
-      ignoreComment: true,
-      spaces: 4,
-    });
-
-    // Verificar que el XML tenga todos los productos
-    const productosEnXML = (xml.match(/SDTCompraItem/g) || []).length;
-    console.log("Productos encontrados en XML:", productosEnXML);
-
-    const config = {
-      headers: {
-        "Content-Type": "text/xml",
-      },
-    };
+    if (!cajaAperturada) {
+      Swal.fire({
+        icon: "error",
+        title: "Caja no abierta",
+        text: "Tenés que abrir tu caja antes de confirmar la compra.",
+      });
+      return;
+    }
 
     try {
-      await axios.post(
-        `${import.meta.env.VITE_APP_URL}${
-          import.meta.env.VITE_APP_URL_GENEXUS
-        }apcompraconfirmarws`,
-        xml,
-        config
-      );
-
-      // El webservice SOAP se encarga de crear la compra en la base de datos
+      await confirmarCompra({
+        CompraFecha: compraFechaConHora,
+        CompraFactura: parseInt(compraFactura),
+        CompraTipo: compraTipo as "CO" | "CR",
+        Entregado: compraEntrega,
+        Total: total,
+        UsuarioId: String(user.id),
+        CajaId: Number(cajaAperturada.CajaId),
+        Productos: carrito.map((p) => ({
+          ProveedorId: Number(proveedorSeleccionado.ProveedorId),
+          ProductoId: Number(p.id),
+          CompraProductoCantidad: Number(p.cantidad),
+          CompraProductoPrecio: Number(p.precioUnitario),
+          AlmacenId: Number(user.LocalId || 1),
+          Bonificacion: 0,
+          CompraProductoCantidadUnidad: p.caja ? "C" : "U",
+        })),
+      });
 
       Swal.fire({
         title: "Compra realizada con éxito!",
@@ -395,7 +421,14 @@ export default function Compras() {
         },
       }).then((result) => {
         if (result.dismiss === Swal.DismissReason.timer) {
-          window.location.reload();
+          setCarrito([]);
+          setSelectedProductId(null);
+          setBusqueda("");
+          setBusquedaDebounced("");
+          setCurrentPage(1);
+          setProveedorSeleccionado(null);
+          fetchProductos();
+          searchInputRef.current?.focus();
         }
       });
     } catch (error: unknown) {
@@ -444,36 +477,67 @@ export default function Compras() {
     );
   };
 
-  const handleSearchSubmit = () => {
-    if (!busqueda.trim()) return;
-
-    const productosFiltrados = productos.filter(
-      (p) =>
-        (p.ProductoNombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-          (p.ProductoCodigo &&
-            String(p.ProductoCodigo)
-              .toLowerCase()
-              .includes(busqueda.toLowerCase()))) &&
-        (Number(p.LocalId) === 0 || Number(p.LocalId) === Number(user?.LocalId))
-    );
-
-    if (productosFiltrados.length > 0) {
-      const primerProducto = productosFiltrados[0];
-      agregarProducto({
-        id: primerProducto.ProductoId,
-        nombre: primerProducto.ProductoNombre,
-        precio: primerProducto.ProductoPrecioPromedio
-          ? Number(primerProducto.ProductoPrecioPromedio)
-          : primerProducto.ProductoPrecioVenta,
-        imagen: primerProducto.ProductoImagen
-          ? `data:image/jpeg;base64,${primerProducto.ProductoImagen}`
-          : logo,
-        stock: primerProducto.ProductoStock,
-        precioVentaActual: primerProducto.ProductoPrecioVenta,
-      });
-      setBusqueda("");
-    }
+  // Agrega el primer producto visible al carrito (helper compartido por el
+  // Enter inmediato y por el efecto que espera los resultados asíncronos).
+  const agregarPrimerProductoVisible = () => {
+    if (productos.length === 0) return;
+    const p = productos[0];
+    agregarProducto({
+      id: p.ProductoId,
+      nombre: p.ProductoNombre,
+      precio: p.ProductoPrecioPromedio
+        ? Number(p.ProductoPrecioPromedio)
+        : p.ProductoPrecioVenta,
+      imagen: resolveProductoImagen(p.ProductoId, p.HasImagen),
+      stock: p.ProductoStock,
+      precioVentaActual: p.ProductoPrecioVenta,
+    });
   };
+
+  // Cuando Enter dispara una búsqueda por código y los resultados todavía no
+  // llegaron, este efecto agrega el primer producto al llegar la respuesta.
+  useEffect(() => {
+    if (!addFirstOnNextResultsRef.current) return;
+    if (loading) return;
+    addFirstOnNextResultsRef.current = false;
+    agregarPrimerProductoVisible();
+    setBusqueda("");
+    searchInputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, productos]);
+
+  // ENTER dispara la búsqueda remota inmediatamente (saltea el debounce).
+  // Si el término son solo dígitos lo tratamos como código y agregamos el
+  // primer resultado; si tiene letras, solo filtramos y el usuario elige.
+  const handleSearchSubmit = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    if (!busqueda.trim()) {
+      setBusquedaDebounced(busqueda);
+      return;
+    }
+
+    const esCodigo = /^\d+$/.test(busqueda.trim());
+    if (!esCodigo) {
+      setBusquedaDebounced(busqueda);
+      return;
+    }
+
+    if (busqueda === busquedaDebounced && !loading) {
+      agregarPrimerProductoVisible();
+      setBusqueda("");
+      return;
+    }
+
+    addFirstOnNextResultsRef.current = true;
+    setBusquedaDebounced(busqueda);
+  };
+
+  if (!puedeLeerCompras)
+    return <PermissionDenied resource="la pantalla de compras" />;
 
   return (
     <div className="flex h-screen bg-[#f5f8ff]">
@@ -821,32 +885,26 @@ export default function Compras() {
 
         {/* Contenedor con scroll solo para los productos */}
         <div
-          className="overflow-y-auto"
+          className="flex flex-col"
           style={{ height: "calc(100vh - 120px)" }}
         >
-          <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            }}
-          >
-            {loading ? (
-              <div>Cargando productos...</div>
-            ) : (
-              productos
-                .filter(
-                  (p) =>
-                    (p.ProductoNombre.toLowerCase().includes(
-                      busqueda.toLowerCase()
-                    ) ||
-                      (p.ProductoCodigo &&
-                        String(p.ProductoCodigo)
-                          .toLowerCase()
-                          .includes(busqueda.toLowerCase()))) &&
-                    (Number(p.LocalId) === 0 ||
-                      Number(p.LocalId) === Number(user?.LocalId))
-                )
-                .map((p) => (
+          <div className="overflow-y-auto flex-1 mb-4">
+            <div
+              className="grid gap-4"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              }}
+            >
+              {loading ? (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  Cargando productos...
+                </div>
+              ) : productos.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  No se encontraron productos
+                </div>
+              ) : (
+                productos.map((p) => (
                   <ProductCard
                     key={p.ProductoId}
                     nombre={p.ProductoNombre}
@@ -857,11 +915,7 @@ export default function Compras() {
                     }
                     precioMayorista={p.ProductoPrecioVentaMayorista}
                     clienteTipo="MI"
-                    imagen={
-                      p.ProductoImagen
-                        ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                        : logo
-                    }
+                    imagen={resolveProductoImagen(p.ProductoId, p.HasImagen)}
                     stock={p.ProductoStock}
                     onAdd={() =>
                       agregarProducto({
@@ -870,9 +924,10 @@ export default function Compras() {
                         precio: p.ProductoPrecioPromedio
                           ? Number(p.ProductoPrecioPromedio)
                           : p.ProductoPrecioVenta,
-                        imagen: p.ProductoImagen
-                          ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                          : logo,
+                        imagen: resolveProductoImagen(
+                          p.ProductoId,
+                          p.HasImagen
+                        ),
                         stock: p.ProductoStock,
                         precioVentaActual: p.ProductoPrecioVenta,
                       })
@@ -881,8 +936,23 @@ export default function Compras() {
                     stockUnitario={p.ProductoStockUnitario}
                   />
                 ))
-            )}
+              )}
+            </div>
           </div>
+          {!loading && productos.length > 0 && pagination.totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={pagination.itemsPerPage}
+                onItemsPerPageChange={(newItemsPerPage) => {
+                  setItemsPerPage(newItemsPerPage);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

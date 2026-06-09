@@ -1,5 +1,21 @@
 const RegistroDiarioCaja = require("../models/registrodiariocaja.model");
+const { sendError } = require("../utils/errors");
 const db = require("../config/db");
+
+function extractRegistroFilters(query) {
+  const filters = {};
+  if (query.cajaId !== undefined && query.cajaId !== "")
+    filters.cajaId = query.cajaId;
+  if (query.tipoGastoId !== undefined && query.tipoGastoId !== "")
+    filters.tipoGastoId = query.tipoGastoId;
+  if (query.fechaDesde) filters.fechaDesde = query.fechaDesde;
+  if (query.fechaHasta) filters.fechaHasta = query.fechaHasta;
+  if (query.montoMin !== undefined && query.montoMin !== "")
+    filters.montoMin = query.montoMin;
+  if (query.montoMax !== undefined && query.montoMax !== "")
+    filters.montoMax = query.montoMax;
+  return filters;
+}
 
 // Obtener todos los registros con paginación
 exports.getAll = async (req, res) => {
@@ -8,21 +24,19 @@ exports.getAll = async (req, res) => {
   const offset = (page - 1) * limit;
   const sortBy = req.query.sortBy || "RegistroDiarioCajaFecha";
   const sortOrder = req.query.sortOrder || "DESC";
+  const filters = extractRegistroFilters(req.query);
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-
     const result = await RegistroDiarioCaja.getAllPaginated(
       limit,
       offset,
       sortBy,
-      sortOrder
+      sortOrder,
+      filters
     );
     res.json(result);
   } catch (error) {
     console.error("Error al obtener registros:", error);
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -42,12 +56,15 @@ exports.search = async (req, res) => {
         .json({ error: "El término de búsqueda no puede estar vacío" });
     }
 
+    const filters = extractRegistroFilters(req.query);
+
     const result = await RegistroDiarioCaja.search(
       searchTerm,
       limit,
       offset,
       sortBy,
-      sortOrder
+      sortOrder,
+      filters
     );
 
     res.json(result);
@@ -93,7 +110,7 @@ exports.getByDateRange = async (req, res) => {
     res.json({ data });
   } catch (error) {
     console.error("Error al obtener registros por rango:", error);
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -106,7 +123,8 @@ exports.getById = async (req, res) => {
     }
     res.json(registro);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -122,7 +140,8 @@ exports.create = async (req, res) => {
       data: registro,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -138,7 +157,8 @@ exports.update = async (req, res) => {
       data: registro,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -151,6 +171,7 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Registro eliminado exitosamente" });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -161,7 +182,7 @@ exports.delete = async (req, res) => {
           "No se puede eliminar el registro porque tiene movimientos asociados.",
       });
     }
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -282,7 +303,6 @@ exports.aperturaCierreCaja = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error en el servidor",
-      error: error.message,
     });
   }
 };
@@ -299,6 +319,7 @@ exports.estadoAperturaPorUsuario = async (req, res) => {
     );
     res.json(estado);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };

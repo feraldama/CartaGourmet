@@ -2,23 +2,20 @@ import { useEffect, useState } from "react";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
-import { PlusIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  FunnelIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { getLocales } from "../../services/locales.service";
 import { getPerfiles } from "../../services/perfiles.service";
 import { getPerfilesByUsuario } from "../../services/usuarioperfil.service";
+import type { UsuarioFilters } from "../../services/usuarios.service";
+import { formatMiles } from "../../utils/utils";
 
-interface Usuario {
-  id: string | number;
-  UsuarioId: string;
-  UsuarioNombre: string;
-  UsuarioApellido: string;
-  UsuarioCorreo: string;
-  UsuarioIsAdmin: "S" | "N";
-  UsuarioEstado: "A" | "I";
-  LocalId: number;
-  LocalNombre?: string;
-  [key: string]: unknown;
-}
+import type { Usuario } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -43,6 +40,11 @@ interface UsuariosListProps {
   sortKey?: string;
   sortOrder?: "asc" | "desc";
   onSort?: (key: string, order: "asc" | "desc") => void;
+  filters?: UsuarioFilters;
+  onFiltersChange?: (filters: UsuarioFilters) => void;
+  filterLocales?: { LocalId: number; LocalNombre: string }[];
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
 }
 
 export default function UsuariosList({
@@ -64,7 +66,35 @@ export default function UsuariosList({
   sortKey,
   sortOrder,
   onSort,
+  filters,
+  onFiltersChange,
+  filterLocales = [],
+  showFilters = false,
+  onToggleFilters,
 }: UsuariosListProps) {
+  const activeFilters = filters || {};
+  const activeFilterCount = Object.values(activeFilters).filter(
+    (v) => v !== undefined && v !== "" && v !== null
+  ).length;
+
+  const updateFilter = <K extends keyof UsuarioFilters>(
+    key: K,
+    value: UsuarioFilters[K] | ""
+  ) => {
+    if (!onFiltersChange) return;
+    const next: UsuarioFilters = { ...activeFilters };
+    if (value === "" || value === undefined) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+    onFiltersChange(next);
+  };
+
+  const clearFilters = () => {
+    if (!onFiltersChange) return;
+    onFiltersChange({});
+  };
   const [formData, setFormData] = useState({
     id: "",
     UsuarioId: "",
@@ -116,14 +146,14 @@ export default function UsuariosList({
         LocalId: 1,
       });
     }
-    getLocales(1, 1000).then((res) => {
+    getLocales(1, 200).then((res) => {
       setLocales(res.data || []);
     });
   }, [currentUser, setEditingPassword]);
 
   useEffect(() => {
     if (isModalOpen) {
-      getPerfiles(1, 1000).then((res) => setPerfiles(res.data || []));
+      getPerfiles(1, 200).then((res) => setPerfiles(res.data || []));
       if (currentUser) {
         getPerfilesByUsuario(currentUser.UsuarioId).then((res) => {
           const perfilesArray = Array.isArray(res) ? res : res.data;
@@ -227,7 +257,22 @@ export default function UsuariosList({
             placeholder="Buscar usuarios"
           />
         </div>
-        <div className="py-4">
+        <div className="py-4 flex gap-2">
+          {onFiltersChange && onToggleFilters && (
+            <button
+              type="button"
+              onClick={onToggleFilters}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <FunnelIcon className="w-4 h-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
           {onCreate && (
             <ActionButton
               label="Nuevo Usuario"
@@ -237,10 +282,86 @@ export default function UsuariosList({
           )}
         </div>
       </div>
+      {onFiltersChange && showFilters && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Estado
+              </label>
+              <select
+                value={activeFilters.estado || ""}
+                onChange={(e) =>
+                  updateFilter(
+                    "estado",
+                    (e.target.value as UsuarioFilters["estado"]) || ""
+                  )
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                <option value="A">Activo</option>
+                <option value="I">Inactivo</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Administrador
+              </label>
+              <select
+                value={activeFilters.admin || ""}
+                onChange={(e) =>
+                  updateFilter(
+                    "admin",
+                    (e.target.value as UsuarioFilters["admin"]) || ""
+                  )
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                <option value="S">Sí</option>
+                <option value="N">No</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Local
+              </label>
+              <select
+                value={activeFilters.localId ?? ""}
+                onChange={(e) =>
+                  updateFilter("localId", e.target.value || "")
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                {filterLocales.map((l) => (
+                  <option key={l.LocalId} value={l.LocalId}>
+                    {l.LocalNombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+              >
+                <XMarkIcon className="w-4 h-4" />
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {usuarios.length} de {pagination?.totalItems} usuarios
+          Mostrando {formatMiles(usuarios.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} usuarios
         </div>
       </div>
 

@@ -4,19 +4,26 @@ import {
   getComprasPaginated,
   searchCompras,
   type Compra,
+  type CompraFilters,
   getProductosByCompraId,
   type CompraProducto,
   deleteCompra,
 } from "../../services/compras.service";
-import { getProveedorById } from "../../services/proveedores.service";
+import {
+  getProveedorById,
+  getAllProveedoresSinPaginacion,
+} from "../../services/proveedores.service";
 import { getProductoById } from "../../services/productos.service";
-import { getAlmacenById } from "../../services/almacenes.service";
+import { getAlmacenById, getAlmacenes } from "../../services/almacenes.service";
 import ComprasList from "../../components/compras/ComprasList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import { formatCurrency } from "../../utils/utils";
 import Swal from "sweetalert2";
-import axios from "axios";
-import { js2xml } from "xml-js";
 
 interface Pagination {
   totalItems: number;
@@ -37,6 +44,14 @@ export default function ComprasPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string>("CompraId");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [filters, setFilters] = useState<CompraFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [almacenes, setAlmacenes] = useState<
+    { AlmacenId: number; AlmacenNombre: string }[]
+  >([]);
+  const [proveedores, setProveedores] = useState<
+    { ProveedorId: number; ProveedorNombre: string }[]
+  >([]);
 
   const puedeCrear = usePermiso("COMPRAS", "crear");
   const puedeLeer = usePermiso("COMPRAS", "leer");
@@ -102,14 +117,16 @@ export default function ComprasPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
         data = await getComprasPaginated(
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       }
       const comprasConProveedores = await loadProveedoresData(data.data);
@@ -127,11 +144,40 @@ export default function ComprasPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
 
   useEffect(() => {
     fetchCompras();
   }, [fetchCompras]);
+
+  useEffect(() => {
+    // Cargar almacenes y proveedores para los dropdowns de filtros.
+    const loadFilterOptions = async () => {
+      try {
+        const [almacenesRes, proveedoresRes] = await Promise.all([
+          getAlmacenes(1, 200),
+          getAllProveedoresSinPaginacion(),
+        ]);
+        setAlmacenes(almacenesRes?.data || []);
+        setProveedores(proveedoresRes?.data || []);
+      } catch (err) {
+        console.error("Error al cargar opciones de filtros:", err);
+      }
+    };
+    loadFilterOptions();
+  }, []);
+
+  const handleFiltersChange = (newFilters: CompraFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -230,9 +276,12 @@ export default function ComprasPage() {
         html: `
           <div class="text-left" style="overflow-x: auto;">
             <p><strong>Proveedor:</strong> ${proveedorInfo}</p>
-            <p><strong>Fecha:</strong> ${new Date(
-              compra.CompraFecha
-            ).toLocaleString()}</p>
+            <p><strong>Fecha:</strong> ${(() => {
+              const raw = String(compra.CompraFecha ?? "");
+              const [y, m, d] = raw.slice(0, 10).split("-").map(Number);
+              if (!y || !m || !d) return raw;
+              return new Date(y, m - 1, d).toLocaleDateString("es-ES");
+            })()}</p>
             <p><strong>Tipo:</strong> ${getTipoCompraText(
               compra.CompraTipo
             )}</p>
@@ -279,54 +328,7 @@ export default function ComprasPage() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // Preparar fecha para el webservice
-          const fechaDate = new Date();
-          const dia = fechaDate.getDate();
-          const mes = fechaDate.getMonth() + 1;
-          const año = fechaDate.getFullYear() % 100;
-          const diaStr = dia < 10 ? `0${dia}` : dia.toString();
-          const mesStr = mes < 10 ? `0${mes}` : mes.toString();
-          const añoStr = año < 10 ? `0${año}` : año.toString();
-          const fechaFormateada = `${diaStr}/${mesStr}/${añoStr}`;
-
-          // Preparar datos para el webservice
-          const json = {
-            Envelope: {
-              _attributes: {
-                xmlns: "http://schemas.xmlsoap.org/soap/envelope/",
-              },
-              Body: {
-                "PBorrarRegistoDiarioWS.VENTACONFIRMAR": {
-                  _attributes: { xmlns: "TechNow" },
-                  Ventaid: compra.CompraId,
-                  Fechastring: fechaFormateada,
-                  Regla: 2, // Valor por defecto para Regla
-                },
-              },
-            },
-          };
-
-          const xml = js2xml(json, {
-            compact: true,
-            ignoreComment: true,
-            spaces: 4,
-          });
-          const config = {
-            headers: {
-              "Content-Type": "text/xml",
-            },
-          };
-
-          // PRIMERO: Llamar al webservice
-          await axios.post(
-            `${import.meta.env.VITE_APP_URL}${
-              import.meta.env.VITE_APP_URL_GENEXUS
-            }apborrarregistodiariows`,
-            xml,
-            config
-          );
-
-          // SEGUNDO: Solo si el webservice fue exitoso, eliminar la compra
+          // El endpoint Node DELETE revierte caja y stock atómicamente.
           await deleteCompra(compra.CompraId);
 
           let timerInterval: ReturnType<typeof setInterval>;
@@ -389,9 +391,18 @@ export default function ComprasPage() {
     console.log("Crear nueva compra");
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver las compras.</div>;
-  if (loading) return <div>Cargando compras...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="las compras" />;
+  if (loading) return <LoadingState message="Cargando compras..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchCompras();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -413,6 +424,12 @@ export default function ComprasPage() {
           setSortOrder(order);
           setCurrentPage(1);
         }}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        almacenes={almacenes}
+        proveedores={proveedores}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

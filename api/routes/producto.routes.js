@@ -3,8 +3,9 @@ const router = express.Router();
 const productoController = require("../controllers/producto.controller");
 const authMiddleware = require("../middlewares/auth");
 
-// Rutas públicas (si necesitas alguna, por ejemplo para obtener productos sin login)
-// router.get("/public", productoController.getAllProductos);
+// Ruta pública: imagen binaria del producto. Sin auth para que los <img>
+// la puedan cargar directamente con el header Authorization del browser.
+router.get("/:id/imagen", productoController.getImagen);
 
 // Rutas protegidas (requieren autenticación)
 router.get("/", authMiddleware, productoController.getAllProductos);
@@ -17,6 +18,16 @@ router.get(
   "/reporte-stock",
   authMiddleware,
   productoController.getReporteStock
+);
+router.get(
+  "/reporte-movimientos",
+  authMiddleware,
+  productoController.getReporteMovimientos
+);
+router.get(
+  "/reporte-mas-vendidos",
+  authMiddleware,
+  productoController.getReporteMasVendidos
 );
 router.get("/search", authMiddleware, productoController.searchProductos);
 router.get("/:id", authMiddleware, productoController.getProductoById);

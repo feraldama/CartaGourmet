@@ -5,9 +5,16 @@ import {
   searchUsuarios,
   createUsuario,
   updateUsuario,
+  type UsuarioFilters,
 } from "../../services/usuarios.service";
+import { getLocales } from "../../services/locales.service";
 import UsersList from "../../components/users/UsersList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
 import {
@@ -16,18 +23,7 @@ import {
   deleteUsuarioPerfil,
 } from "../../services/usuarioperfil.service";
 
-// Tipos auxiliares
-interface Usuario {
-  id: string | number;
-  UsuarioId: string;
-  UsuarioNombre: string;
-  UsuarioApellido: string;
-  UsuarioCorreo: string;
-  UsuarioIsAdmin: "S" | "N";
-  UsuarioEstado: "A" | "I";
-  LocalId: number;
-  [key: string]: unknown;
-}
+import type { Usuario } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -53,6 +49,11 @@ export default function UsuariosPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string | undefined>();
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<UsuarioFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [locales, setLocales] = useState<
+    { LocalId: number; LocalNombre: string }[]
+  >([]);
 
   const puedeCrear = usePermiso("USUARIOS", "crear");
   const puedeEditar = usePermiso("USUARIOS", "editar");
@@ -69,10 +70,17 @@ export default function UsuariosPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
-        data = await getUsuarios(currentPage, itemsPerPage, sortKey, sortOrder);
+        data = await getUsuarios(
+          currentPage,
+          itemsPerPage,
+          sortKey,
+          sortOrder,
+          filters
+        );
       }
       setUsuariosData({
         usuarios: data.data,
@@ -87,11 +95,30 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
 
   useEffect(() => {
     fetchUsuarios();
   }, [fetchUsuarios]);
+
+  useEffect(() => {
+    // Cargar locales para el dropdown del filtro.
+    getLocales(1, 200)
+      .then((res) => setLocales(res.data || []))
+      .catch((err) => console.error("Error al cargar locales:", err));
+  }, []);
+
+  const handleFiltersChange = (newFilters: UsuarioFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -259,10 +286,19 @@ export default function UsuariosPage() {
     setCurrentPage(1); // Resetear a la primera página cuando cambia el número de items por página
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver los usuarios</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los usuarios" />;
 
-  if (loading) return <div>Cargando usuarios...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <LoadingState message="Cargando usuarios..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchUsuarios();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -323,6 +359,11 @@ export default function UsuariosPage() {
           setSortOrder(order);
           setCurrentPage(1);
         }}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        filterLocales={locales}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

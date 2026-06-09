@@ -3,16 +3,9 @@ import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
 import DataTable from "../common/Table/DataTable";
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { formatMiles } from "../../utils/utils";
 
-interface Local {
-  id: string | number;
-  LocalId: string | number;
-  LocalNombre: string;
-  LocalTelefono?: string;
-  LocalCelular?: string;
-  LocalDireccion?: string;
-  [key: string]: unknown;
-}
+import type { Local } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -137,7 +130,8 @@ export default function LocalesList({
       </div>
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {locales.length} de {pagination?.totalItems} locales
+          Mostrando {formatMiles(locales.length)} de{" "}
+          {formatMiles(pagination?.totalItems || 0)} locales
         </div>
       </div>
       <DataTable<Local>

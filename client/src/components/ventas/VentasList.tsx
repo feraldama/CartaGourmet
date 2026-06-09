@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import DataTable from "../common/Table/DataTable";
-import type { Venta, VentaCreditoPago } from "../../services/venta.service";
-import { formatCurrency } from "../../utils/utils";
+import type {
+  Venta,
+  VentaCreditoPago,
+  VentaFilters,
+} from "../../services/venta.service";
+import { formatCurrency, formatMiles } from "../../utils/utils";
 import { getAlmacenById } from "../../services/almacenes.service";
 import SearchButton from "../common/Input/SearchButton";
 import ActionButton from "../common/Button/ActionButton";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, FunnelIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import {
   getVentaCreditoByVentaId,
@@ -27,6 +31,11 @@ interface VentasListProps {
   pagination?: {
     totalItems: number;
   };
+  filters?: VentaFilters;
+  onFiltersChange?: (filters: VentaFilters) => void;
+  almacenes?: { AlmacenId: number; AlmacenNombre: string }[];
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
 }
 
 interface VentaWithId extends Venta {
@@ -49,8 +58,53 @@ const VentasList = ({
   onKeyPress,
   onSearchSubmit,
   pagination,
+  filters,
+  onFiltersChange,
+  almacenes = [],
+  showFilters = false,
+  onToggleFilters,
 }: VentasListProps) => {
   const [ventasWithAlmacen, setVentasWithAlmacen] = useState<VentaWithId[]>([]);
+
+  const activeFilters = filters || {};
+
+  // Estado local para inputs de fecha: `type="date"` emite onChange en cada
+  // dígito del año (0001→0002→…→2026), y cada cambio dispararía un fetch
+  // que desmonta la vista. Sincronizamos al padre sólo en blur / Enter.
+  const [fechaDesdeLocal, setFechaDesdeLocal] = useState(
+    activeFilters.fechaDesde || ""
+  );
+  const [fechaHastaLocal, setFechaHastaLocal] = useState(
+    activeFilters.fechaHasta || ""
+  );
+  useEffect(() => {
+    setFechaDesdeLocal(activeFilters.fechaDesde || "");
+  }, [activeFilters.fechaDesde]);
+  useEffect(() => {
+    setFechaHastaLocal(activeFilters.fechaHasta || "");
+  }, [activeFilters.fechaHasta]);
+  const activeFilterCount = Object.values(activeFilters).filter(
+    (v) => v !== undefined && v !== "" && v !== null
+  ).length;
+
+  const updateFilter = <K extends keyof VentaFilters>(
+    key: K,
+    value: VentaFilters[K] | ""
+  ) => {
+    if (!onFiltersChange) return;
+    const next: VentaFilters = { ...activeFilters };
+    if (value === "" || value === undefined) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+    onFiltersChange(next);
+  };
+
+  const clearFilters = () => {
+    if (!onFiltersChange) return;
+    onFiltersChange({});
+  };
 
   useEffect(() => {
     const loadAlmacenesData = async () => {
@@ -303,7 +357,22 @@ const VentasList = ({
             placeholder="Buscar ventas..."
           />
         </div>
-        <div className="py-4">
+        <div className="py-4 flex gap-2">
+          {onFiltersChange && onToggleFilters && (
+            <button
+              type="button"
+              onClick={onToggleFilters}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <FunnelIcon className="w-4 h-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
           {onCreate && (
             <ActionButton
               label="Nueva Venta"
@@ -313,10 +382,146 @@ const VentasList = ({
           )}
         </div>
       </div>
+      {onFiltersChange && showFilters && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Tipo
+              </label>
+              <select
+                value={activeFilters.tipo || ""}
+                onChange={(e) =>
+                  updateFilter(
+                    "tipo",
+                    (e.target.value as VentaFilters["tipo"]) || ""
+                  )
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                <option value="CO">Contado</option>
+                <option value="CR">Crédito</option>
+                <option value="PO">POS</option>
+                <option value="TR">Transfer</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Almacén
+              </label>
+              <select
+                value={activeFilters.almacenId ?? ""}
+                onChange={(e) =>
+                  updateFilter("almacenId", e.target.value || "")
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                {almacenes.map((a) => (
+                  <option key={a.AlmacenId} value={a.AlmacenId}>
+                    {a.AlmacenNombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Desde
+              </label>
+              <input
+                type="date"
+                value={fechaDesdeLocal}
+                max={fechaHastaLocal || undefined}
+                onChange={(e) => setFechaDesdeLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  // Si Desde es mayor a Hasta, revertir al valor aplicado.
+                  if (value && fechaHastaLocal && value > fechaHastaLocal) {
+                    setFechaDesdeLocal(activeFilters.fechaDesde || "");
+                    return;
+                  }
+                  if (value !== (activeFilters.fechaDesde || "")) {
+                    updateFilter("fechaDesde", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Hasta
+              </label>
+              <input
+                type="date"
+                value={fechaHastaLocal}
+                min={fechaDesdeLocal || undefined}
+                onChange={(e) => setFechaHastaLocal(e.target.value)}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  // Si Hasta es menor a Desde, revertir al valor aplicado.
+                  if (value && fechaDesdeLocal && value < fechaDesdeLocal) {
+                    setFechaHastaLocal(activeFilters.fechaHasta || "");
+                    return;
+                  }
+                  if (value !== (activeFilters.fechaHasta || "")) {
+                    updateFilter("fechaHasta", value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-700">
+                Estado
+              </label>
+              <select
+                value={activeFilters.estado || ""}
+                onChange={(e) =>
+                  updateFilter(
+                    "estado",
+                    (e.target.value as VentaFilters["estado"]) || ""
+                  )
+                }
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+              >
+                <option value="">Todos</option>
+                <option value="P">Pendiente</option>
+                <option value="C">Completado</option>
+              </select>
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+              >
+                <XMarkIcon className="w-4 h-4" />
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-600">
-          Mostrando {ventasWithAlmacen.length} de{" "}
-          {pagination?.totalItems || ventasWithAlmacen.length} ventas
+          Mostrando {formatMiles(ventasWithAlmacen.length)} de{" "}
+          {formatMiles(pagination?.totalItems || ventasWithAlmacen.length)}{" "}
+          ventas
         </div>
       </div>
 

@@ -12,6 +12,11 @@ import {
 } from "../../services/perfilmenu.service";
 import PerfilesList from "../../components/perfiles/PerfilesList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
 
@@ -176,9 +181,18 @@ export default function PerfilesPage() {
     perfil.PerfilDescripcion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!puedeLeer) return <div>No tienes permiso para ver los perfiles</div>;
-  if (loading) return <div>Cargando perfiles...</div>;
-  if (error) return <div>{error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los perfiles" />;
+  if (loading) return <LoadingState message="Cargando perfiles..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchPerfiles();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -196,6 +210,7 @@ export default function PerfilesPage() {
         onSearch={handleSearch}
         onKeyPress={handleKeyPress}
         onSearchSubmit={handleSearchSubmit}
+        pagination={perfilesData.pagination}
       />
       <Pagination
         currentPage={currentPage}

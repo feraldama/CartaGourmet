@@ -1,11 +1,38 @@
 import api from "./api";
 import type { AxiosError } from "axios";
 
+export interface RegistroFilters {
+  cajaId?: number | string;
+  tipoGastoId?: number | string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  montoMin?: number | string;
+  montoMax?: number | string;
+}
+
+const applyRegistroFilters = (
+  params: { [key: string]: string | number | undefined },
+  filters?: RegistroFilters
+) => {
+  if (!filters) return;
+  if (filters.cajaId != null && filters.cajaId !== "")
+    params.cajaId = filters.cajaId;
+  if (filters.tipoGastoId != null && filters.tipoGastoId !== "")
+    params.tipoGastoId = filters.tipoGastoId;
+  if (filters.fechaDesde) params.fechaDesde = filters.fechaDesde;
+  if (filters.fechaHasta) params.fechaHasta = filters.fechaHasta;
+  if (filters.montoMin != null && filters.montoMin !== "")
+    params.montoMin = filters.montoMin;
+  if (filters.montoMax != null && filters.montoMax !== "")
+    params.montoMax = filters.montoMax;
+};
+
 export const getRegistrosDiariosCaja = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: RegistroFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     page,
@@ -13,6 +40,7 @@ export const getRegistrosDiariosCaja = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyRegistroFilters(params, filters);
   try {
     const response = await api.get("/registrodiariocaja", { params });
     return response.data;
@@ -31,7 +59,8 @@ export const searchRegistrosDiariosCaja = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: RegistroFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     q: searchTerm,
@@ -40,6 +69,7 @@ export const searchRegistrosDiariosCaja = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyRegistroFilters(params, filters);
   try {
     const response = await api.get(`/registrodiariocaja/search`, { params });
     return response.data;

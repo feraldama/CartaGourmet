@@ -57,11 +57,11 @@ const Perfil = {
     return new Promise((resolve, reject) => {
       const offset = (page - 1) * itemsPerPage;
       db.query(
-        "SELECT SQL_CALC_FOUND_ROWS * FROM perfil LIMIT ? OFFSET ?",
+        "SELECT * FROM perfil LIMIT ? OFFSET ?",
         [parseInt(itemsPerPage), parseInt(offset)],
         (err, results) => {
           if (err) return reject(err);
-          db.query("SELECT FOUND_ROWS() as total", (err2, totalResult) => {
+          db.query("SELECT COUNT(*) AS total FROM perfil", (err2, totalResult) => {
             if (err2) return reject(err2);
             resolve({
               data: results,

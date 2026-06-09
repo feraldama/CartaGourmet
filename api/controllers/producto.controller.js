@@ -1,6 +1,28 @@
 const Producto = require("../models/producto.model");
+const { sendError } = require("../utils/errors");
 
-// getAllProductos (localId opcional: si viene, el stock devuelto es solo de almacenes con ese LocalId)
+function extractProductoFilters(query) {
+  const filters = {};
+  if (query.localId !== undefined && query.localId !== "") {
+    const local = parseInt(query.localId, 10);
+    if (!isNaN(local)) filters.localId = local;
+  }
+  if (query.localIdOrZero !== undefined && query.localIdOrZero !== "") {
+    const local = parseInt(query.localIdOrZero, 10);
+    if (!isNaN(local)) filters.localIdOrZero = local;
+  }
+  if (query.stockMin !== undefined && query.stockMin !== "")
+    filters.stockMin = query.stockMin;
+  if (query.stockMax !== undefined && query.stockMax !== "")
+    filters.stockMax = query.stockMax;
+  if (query.precioMin !== undefined && query.precioMin !== "")
+    filters.precioMin = query.precioMin;
+  if (query.precioMax !== undefined && query.precioMax !== "")
+    filters.precioMax = query.precioMax;
+  return filters;
+}
+
+// getAllProductos (filters: localId, stockMin/Max, precioMin/Max)
 exports.getAllProductos = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -8,16 +30,13 @@ exports.getAllProductos = async (req, res) => {
     const offset = (page - 1) * limit;
     const sortBy = req.query.sortBy || "ProductoId";
     const sortOrder = req.query.sortOrder || "ASC";
-    const localId =
-      req.query.localId !== undefined && req.query.localId !== ""
-        ? parseInt(req.query.localId, 10)
-        : null;
+    const filters = extractProductoFilters(req.query);
     const { productos, total } = await Producto.getAllPaginated(
       limit,
       offset,
       sortBy,
       sortOrder,
-      isNaN(localId) ? null : localId
+      filters
     );
     convertirImagenes(productos);
     res.json({
@@ -30,11 +49,12 @@ exports.getAllProductos = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
-// searchProductos (localId opcional: si viene, el stock devuelto es solo de almacenes con ese LocalId)
+// searchProductos (filters: localId, stockMin/Max, precioMin/Max)
 exports.searchProductos = async (req, res) => {
   try {
     const { q: searchTerm } = req.query;
@@ -43,10 +63,7 @@ exports.searchProductos = async (req, res) => {
     const offset = (page - 1) * limit;
     const sortBy = req.query.sortBy || "ProductoId";
     const sortOrder = req.query.sortOrder || "ASC";
-    const localId =
-      req.query.localId !== undefined && req.query.localId !== ""
-        ? parseInt(req.query.localId, 10)
-        : null;
+    const filters = extractProductoFilters(req.query);
     if (!searchTerm || searchTerm.trim() === "") {
       return res
         .status(400)
@@ -58,7 +75,7 @@ exports.searchProductos = async (req, res) => {
       offset,
       sortBy,
       sortOrder,
-      isNaN(localId) ? null : localId
+      filters
     );
     convertirImagenes(productos);
     res.json({
@@ -71,7 +88,8 @@ exports.searchProductos = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -85,7 +103,8 @@ exports.getProductoById = async (req, res) => {
     convertirImagenes(producto);
     res.json(producto);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -119,10 +138,10 @@ exports.createProducto = async (req, res) => {
       message: "Producto creado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Error al crear producto",
-      error: error.message,
     });
   }
 };
@@ -151,10 +170,10 @@ exports.updateProducto = async (req, res) => {
       message: "Producto actualizado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Error al actualizar producto",
-      error: error.message,
     });
   }
 };
@@ -175,11 +194,73 @@ exports.deleteProducto = async (req, res) => {
       message: "Producto eliminado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Error al eliminar producto",
-      error: error.message,
     });
+  }
+};
+
+// Reporte de movimientos (ventas y compras) por producto en un rango de fechas
+exports.getReporteMovimientos = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta } = req.query;
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        message: "Debe enviar fechaDesde y fechaHasta en el query string",
+      });
+    }
+    const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!isoRegex.test(fechaDesde) || !isoRegex.test(fechaHasta)) {
+      return res.status(400).json({
+        message: "Las fechas deben tener formato YYYY-MM-DD",
+      });
+    }
+    if (fechaDesde > fechaHasta) {
+      return res.status(400).json({
+        message: "fechaDesde no puede ser mayor que fechaHasta",
+      });
+    }
+    const { productos } = await Producto.getReporteMovimientosPorRango(
+      fechaDesde,
+      fechaHasta
+    );
+    res.json({ data: { productos, fechaDesde, fechaHasta } });
+  } catch (error) {
+    console.error(error);
+    sendError(res, error, 500);
+  }
+};
+
+// Reporte de productos más vendidos en un rango de fechas
+exports.getReporteMasVendidos = async (req, res) => {
+  try {
+    const { fechaDesde, fechaHasta } = req.query;
+    if (!fechaDesde || !fechaHasta) {
+      return res.status(400).json({
+        message: "Debe enviar fechaDesde y fechaHasta en el query string",
+      });
+    }
+    const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!isoRegex.test(fechaDesde) || !isoRegex.test(fechaHasta)) {
+      return res.status(400).json({
+        message: "Las fechas deben tener formato YYYY-MM-DD",
+      });
+    }
+    if (fechaDesde > fechaHasta) {
+      return res.status(400).json({
+        message: "fechaDesde no puede ser mayor que fechaHasta",
+      });
+    }
+    const { productos } = await Producto.getReporteMasVendidos(
+      fechaDesde,
+      fechaHasta
+    );
+    res.json({ data: { productos, fechaDesde, fechaHasta } });
+  } catch (error) {
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -189,18 +270,41 @@ exports.getReporteStock = async (req, res) => {
     const { productos } = await Producto.getReporteStock();
     res.json({ data: { productos } });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
 // Obtener todos los productos sin paginación
 exports.getAllProductosSinPaginacion = async (req, res) => {
   try {
-    const productos = await Producto.getAll();
+    const filters = extractProductoFilters(req.query);
+    const productos = await Producto.getAll(filters);
     convertirImagenes(productos);
     res.json({ data: productos });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
+  }
+};
+
+/**
+ * GET /productos/:id/imagen
+ * Sirve el BLOB como binario. Público (sin auth) para que los tags <img>
+ * lo puedan cargar directamente. Con cache agresivo del navegador.
+ */
+exports.getImagen = async (req, res) => {
+  try {
+    const imagen = await Producto.getImagen(req.params.id);
+    // `imagen` puede ser null, undefined, o un Buffer de 0 bytes (algunos
+    // productos tienen el BLOB vacío en vez de NULL).
+    if (!imagen || imagen.length === 0) return res.status(404).end();
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.send(imagen);
+  } catch (error) {
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 

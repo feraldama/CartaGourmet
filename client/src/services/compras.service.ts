@@ -1,6 +1,39 @@
 import api from "./api";
 import type { AxiosError } from "axios";
 
+export interface ConfirmarCompraProducto {
+  ProveedorId: number;
+  ProductoId: number;
+  CompraProductoCantidad: number;
+  CompraProductoPrecio: number;
+  AlmacenId: number;
+  Bonificacion: number;
+  CompraProductoCantidadUnidad: "C" | "U";
+}
+
+export interface ConfirmarCompraPayload {
+  CompraFecha: string; // ISO YYYY-MM-DD[THH:MM:SS]
+  CompraFactura: number;
+  CompraTipo: "CO" | "CR";
+  Entregado: number;
+  Total: number;
+  UsuarioId: string;
+  CajaId: number;
+  Productos: ConfirmarCompraProducto[];
+}
+
+export const confirmarCompra = async (payload: ConfirmarCompraPayload) => {
+  try {
+    const response = await api.post("/compras/confirmar", payload);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw (
+      axiosError.response?.data || { message: "Error al confirmar la compra" }
+    );
+  }
+};
+
 export interface Compra {
   CompraId: number;
   CompraFecha: string;
@@ -69,6 +102,26 @@ export interface ComprasResponse {
     itemsPerPage: number;
   };
 }
+
+export interface CompraFilters {
+  tipo?: "CO" | "CR";
+  proveedorId?: number | string;
+  almacenId?: number | string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+}
+
+const applyCompraFilters = (
+  params: { [key: string]: string | number | undefined },
+  filters?: CompraFilters
+) => {
+  if (!filters) return;
+  if (filters.tipo) params.tipo = filters.tipo;
+  if (filters.proveedorId) params.proveedorId = filters.proveedorId;
+  if (filters.almacenId) params.almacenId = filters.almacenId;
+  if (filters.fechaDesde) params.fechaDesde = filters.fechaDesde;
+  if (filters.fechaHasta) params.fechaHasta = filters.fechaHasta;
+};
 
 export interface CompraResponse {
   success: boolean;
@@ -150,12 +203,18 @@ export const getComprasPaginated = async (
   page: number = 1,
   limit: number = 10,
   sortKey: string = "CompraId",
-  sortOrder: "asc" | "desc" = "desc"
+  sortOrder: "asc" | "desc" = "desc",
+  filters?: CompraFilters
 ): Promise<ComprasResponse> => {
   try {
-    const response = await api.get("/compras", {
-      params: { page, limit, sortKey, sortOrder },
-    });
+    const params: { [key: string]: string | number | undefined } = {
+      page,
+      limit,
+      sortKey,
+      sortOrder,
+    };
+    applyCompraFilters(params, filters);
+    const response = await api.get("/compras", { params });
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -169,12 +228,19 @@ export const searchCompras = async (
   page: number = 1,
   limit: number = 10,
   sortKey: string = "CompraId",
-  sortOrder: "asc" | "desc" = "desc"
+  sortOrder: "asc" | "desc" = "desc",
+  filters?: CompraFilters
 ): Promise<ComprasResponse> => {
   try {
-    const response = await api.get("/compras/search", {
-      params: { search: searchTerm, page, limit, sortKey, sortOrder },
-    });
+    const params: { [key: string]: string | number | undefined } = {
+      search: searchTerm,
+      page,
+      limit,
+      sortKey,
+      sortOrder,
+    };
+    applyCompraFilters(params, filters);
+    const response = await api.get("/compras/search", { params });
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;

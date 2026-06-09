@@ -124,9 +124,10 @@ const navigation: NavigationItem[] = [
 interface NavItemProps {
   item: NavigationItem;
   level?: number;
+  onNavigate?: () => void;
 }
 
-function NavItem({ item, level = 0 }: NavItemProps) {
+function NavItem({ item, level = 0, onNavigate }: NavItemProps) {
   const location = useLocation();
   const isActive = location.pathname === item.href;
 
@@ -153,7 +154,11 @@ function NavItem({ item, level = 0 }: NavItemProps) {
               {item.children &&
                 item.children.map((child) => (
                   <li key={child.name}>
-                    <NavItem item={child} level={level + 1} />
+                    <NavItem
+                      item={child}
+                      level={level + 1}
+                      onNavigate={onNavigate}
+                    />
                   </li>
                 ))}
             </DisclosurePanel>
@@ -166,6 +171,7 @@ function NavItem({ item, level = 0 }: NavItemProps) {
   return (
     <Link
       to={item.href}
+      onClick={onNavigate}
       className={`flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md ${
         isActive ? "bg-gray-700 text-white" : ""
       }`}
@@ -213,7 +219,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
             <div className="flex-1 overflow-y-auto">
               <nav className="px-2 py-4 space-y-1">
                 {navigation.map((item) => (
-                  <NavItem key={item.name} item={item} />
+                  <NavItem
+                    key={item.name}
+                    item={item}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
                 ))}
               </nav>
             </div>

@@ -9,17 +9,17 @@ import ProductCard from "../../components/products/ProductCard";
 import { useAuth } from "../../contexts/useAuth";
 import PaymentModal from "../../components/common/PaymentModal";
 import Swal from "sweetalert2";
-import axios from "axios";
-import { js2xml } from "xml-js";
-import logo from "../../assets/img/logo.jpg";
+import { confirmarVenta, devolverVenta } from "../../services/venta.service";
+import { usePermiso } from "../../hooks/usePermiso";
+import { PermissionDenied } from "../../components/common/ui";
+import { resolveProductoImagen } from "../../utils/productImage";
 import {
   getAllClientesSinPaginacion,
   createCliente,
 } from "../../services/clientes.service";
 import ClienteModal from "../../components/common/ClienteModal";
 import type { Cliente } from "../../components/common/ClienteFormModal";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { loadPdf } from "../../utils/lazyPdf";
 import { getEstadoAperturaPorUsuario } from "../../services/registrodiariocaja.service";
 import { getCajaById } from "../../services/cajas.service";
 import { getLocalById } from "../../services/locales.service";
@@ -35,13 +35,7 @@ import {
   type CarritoItem,
 } from "../../utils/utils";
 
-interface Caja {
-  id: string | number;
-  CajaId: string | number;
-  CajaDescripcion: string;
-  CajaMonto: number;
-  [key: string]: unknown;
-}
+import type { Caja } from "../../types";
 
 interface Combo {
   ComboId: number;
@@ -53,6 +47,7 @@ interface Combo {
 }
 
 export default function Sales() {
+  const puedeLeerVentas = usePermiso("NUEVAVENTA", "leer");
   const [carrito, setCarrito] = useState<
     {
       id: number;
@@ -78,7 +73,7 @@ export default function Sales() {
       ProductoNombre: string;
       ProductoPrecioVenta: number;
       ProductoStock: number;
-      ProductoImagen?: string;
+      HasImagen?: number | boolean;
       ProductoPrecioVentaMayorista: number;
       LocalId: string | number;
       ProductoPrecioUnitario: number;
@@ -88,6 +83,7 @@ export default function Sales() {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [pagination, setPagination] = useState({
     totalItems: 0,
     totalPages: 1,
@@ -133,6 +129,20 @@ export default function Sales() {
   const cantidadRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Flag para indicar "al llegar los próximos resultados de búsqueda, agregar
+  // el primer producto al carrito". Se activa cuando el usuario presiona Enter
+  // con una búsqueda pendiente de aplicarse (flujo tipo scanner de código de
+  // barras / Enter tras tipear el nombre).
+  const addFirstOnNextResultsRef = useRef(false);
+  // Término escaneado pendiente. Lo usamos para verificar que los resultados
+  // que llegan corresponden al código escaneado y no a un fetch previo (evita
+  // agregar un producto incorrecto por una condición de carrera entre fetches).
+  const pendingScanTermRef = useRef<string>("");
+  // Término al que corresponde el array `productos` actualmente cargado. Se
+  // actualiza recién cuando llega la respuesta del fetch. Se compara contra
+  // `pendingScanTermRef` para saber si los productos visibles realmente son
+  // los resultados del código escaneado (y no todavía los productos previos).
+  const productosForTermRef = useRef<string>("");
 
   useEffect(() => {
     if (selectedProductId !== null && cantidadRefs.current[selectedProductId]) {
@@ -242,41 +252,33 @@ export default function Sales() {
 
     setLoading(true);
     try {
-      const localIdUsuario = user?.LocalId ?? null;
-      let data;
-      if (busquedaDebounced.trim()) {
-        // Si hay búsqueda, usar el endpoint de búsqueda paginado (stock del almacén del local del usuario)
-        data = await searchProductos(
-          busquedaDebounced.trim(),
-          currentPage,
-          itemsPerPage,
-          undefined,
-          undefined,
-          localIdUsuario,
-        );
-      } else {
-        // Si no hay búsqueda, cargar productos paginados (stock del almacén del local del usuario)
-        data = await getProductosPaginated(
-          currentPage,
-          itemsPerPage,
-          undefined,
-          undefined,
-          localIdUsuario,
-        );
-      }
-
-      // Filtrar productos por LocalId: mostrar si es 0 (todos) o si coincide con el local del usuario
+      // El backend filtra por el local del usuario incluyendo los productos
+      // "universales" (LocalId=0). Así la paginación ya devuelve exactamente
+      // los ítems visibles y no quedan páginas incompletas.
       const localUsuario = Number(user?.LocalId);
-      const productosFiltrados = (data.data || []).filter(
-        (p: { LocalId: string | number }) => {
-          const localProd = Number(p.LocalId);
-          return (
-            localProd === 0 || (localUsuario && localProd === localUsuario)
+      const filters = localUsuario ? { localIdOrZero: localUsuario } : undefined;
+      const data = busquedaDebounced.trim()
+        ? await searchProductos(
+            busquedaDebounced.trim(),
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters,
+          )
+        : await getProductosPaginated(
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters,
           );
-        },
-      );
 
-      setProductos(productosFiltrados);
+      setProductos(data.data || []);
+      // Registrar a qué término corresponden estos productos, para que el
+      // efecto que agrega el primer producto sepa que ya llegó la respuesta
+      // del código escaneado (y no los productos previos).
+      productosForTermRef.current = busquedaDebounced.trim();
       setPagination({
         totalItems: data.pagination?.totalItems || 0,
         totalPages: data.pagination?.totalPages || 1,
@@ -286,20 +288,27 @@ export default function Sales() {
     } catch (error) {
       console.error("Error al cargar productos:", error);
       setProductos([]);
+      productosForTermRef.current = busquedaDebounced.trim();
     } finally {
       setLoading(false);
     }
+    // refreshKey se incrementa tras una venta para forzar el refetch de
+    // productos (regenera la identidad del callback y dispara el useEffect
+    // que llama a fetchProductos). No se lee dentro del cuerpo, por eso el
+    // linter lo marca como innecesario — la dependencia es intencional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     cajaAperturada,
     busquedaDebounced,
     currentPage,
     itemsPerPage,
     user?.LocalId,
+    refreshKey,
   ]);
 
   // Cargar combos solo una vez al montar
   useEffect(() => {
-    getCombos(1, 1000).then((data) => setCombos(data.data || []));
+    getCombos(1, 200).then((data) => setCombos(data.data || []));
   }, []);
 
   // Cargar productos cuando cambian las dependencias
@@ -308,6 +317,26 @@ export default function Sales() {
       fetchProductos();
     }
   }, [fetchProductos, cajaAperturada]);
+
+  // Cuando el usuario presiona Enter con una búsqueda pendiente, esperamos a
+  // que lleguen los resultados y agregamos el primer producto. Dejamos el
+  // input limpio y con foco para encadenar múltiples escaneos/búsquedas.
+  useEffect(() => {
+    if (!addFirstOnNextResultsRef.current) return;
+    if (loading) return;
+    // Solo agregar cuando los productos actualmente cargados corresponden al
+    // término escaneado. `productosForTermRef` se actualiza recién cuando el
+    // fetch del término pendiente termina; mientras tanto sigue con el valor
+    // del fetch anterior, lo que evita agregar un producto de la página vieja.
+    if (pendingScanTermRef.current.trim() !== productosForTermRef.current)
+      return;
+    addFirstOnNextResultsRef.current = false;
+    pendingScanTermRef.current = "";
+    agregarPrimerProductoVisible();
+    setBusqueda("");
+    searchInputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, productos]);
 
   // Efecto para buscar cuando cambia el término de búsqueda (con debounce)
   useEffect(() => {
@@ -318,10 +347,13 @@ export default function Sales() {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    // Resetear página cuando cambia la búsqueda
-    setCurrentPage(1);
-
     const timeoutId = setTimeout(() => {
+      // Resetear página y aplicar término juntos, en un mismo batch, para que
+      // fetchProductos se dispare una sola vez con el estado coherente y no
+      // produzca un fetch intermedio con el término viejo (causa del bug en
+      // que se agregaba al carrito el primer producto de la página 1 sin
+      // filtrar).
+      setCurrentPage(1);
       setBusquedaDebounced(busqueda);
       debounceTimeoutRef.current = null;
     }, 500); // Debounce de 500ms
@@ -448,19 +480,10 @@ export default function Sales() {
   }
 
   const sendRequest = async () => {
-    const fecha = new Date();
-    // Restar 3h (Paraguay UTC-3): Genexus/MySQL suman 3 al guardar, así queda la hora local correcta
-    const fechaAjustada = new Date(fecha.getTime() - 3 * 60 * 60 * 1000);
-    const dia = fechaAjustada.getDate();
-    const mes = fechaAjustada.getMonth() + 1;
-    const año = fechaAjustada.getFullYear() % 100;
-    const diaStr = dia < 10 ? `0${dia}` : dia.toString();
-    const mesStr = mes < 10 ? `0${mes}` : mes.toString();
-    const añoStr = año < 10 ? `0${año}` : año.toString();
-    const horas = String(fechaAjustada.getHours()).padStart(2, "0");
-    const minutos = String(fechaAjustada.getMinutes()).padStart(2, "0");
-    const segundos = String(fechaAjustada.getSeconds()).padStart(2, "0");
-    const fechaFormateada = `${diaStr}/${mesStr}/${añoStr} ${horas}:${minutos}:${segundos}`;
+    // Hora local del navegador. El parche UTC-4 viejo era para compensar un
+    // bug del JVM/Tomcat de GeneXus que sumaba 1h al guardar; ahora vamos a
+    // Node/PG directo y no hace falta.
+    const fechaAjustada = new Date();
 
     const SDTProductoItem = carrito.map((p) => {
       const combo = combos.find((c) => Number(c.ProductoId) === Number(p.id));
@@ -472,7 +495,7 @@ export default function Sales() {
         p.cantidad,
         precioUnitario,
       );
-      const esCombo = combo && p.cantidad >= comboCantidad;
+      const esCombo = combo && !p.caja && p.cantidad >= comboCantidad;
       return {
         ClienteId: clienteSeleccionado?.ClienteId,
         Producto: {
@@ -489,81 +512,65 @@ export default function Sales() {
 
     // Determinar si es venta o devolución
     const isDevolucionMode = isDevolucion;
-    const endpoint = isDevolucionMode ? "apdevolucionws" : "apventaconfirmarws";
-    const operationName = isDevolucionMode
-      ? "PDevolucionWS.VENTACONFIRMAR"
-      : "PVentaConfirmarWS.VENTACONFIRMAR";
-    const namespace = isDevolucionMode ? "Tech" : "TechNow";
 
-    const json = {
-      Envelope: {
-        _attributes: { xmlns: "http://schemas.xmlsoap.org/soap/envelope/" },
-        Body: {
-          [operationName]: {
-            _attributes: { xmlns: namespace },
-            Sdtproducto: {
-              SDTProductoItem: SDTProductoItem,
-            },
-            ...(isDevolucionMode
-              ? {
-                  Ventafechastring: fechaFormateada,
-                  Almacenorigenid: user?.LocalId,
-                  Clientetipo: clienteSeleccionado?.ClienteTipo,
-                  Cajaid: cajaAperturada?.CajaId,
-                  Usuarioid: user?.id,
-                  Efectivo: efectivo,
-                  Total2: getSubtotal(cartItems),
-                  Ventatipo: "CO",
-                  Clienteid: clienteSeleccionado?.ClienteId,
-                  Voucherreact: voucher,
-                  Transferreact: Number(banco),
-                  Ventanrofactura: 0,
-                  Ventatimbrado: 0,
-                }
-              : {
-                  Ventafechastring: fechaFormateada,
-                  Almacenorigenid: user?.LocalId,
-                  Clientetipo: clienteSeleccionado?.ClienteTipo,
-                  Cajaid: cajaAperturada?.CajaId,
-                  Usuarioid: user?.id,
-                  Efectivo: efectivo,
-                  Total2: getSubtotal(cartItems),
-                  Ventatipo: "CO",
-                  Pagotipo: "E",
-                  Clienteid: clienteSeleccionado?.ClienteId,
-                  Efectivoreact: Number(efectivo) + Number(totalRest),
-                  Bancoreact: Number(bancoDebito) + Number(bancoCredito),
-                  Clientecuentareact: cuentaCliente,
-                  Voucherreact: voucher,
-                  Transferreact: Number(banco),
-                  Ventanrofactura: 0,
-                  Ventatimbrado: 0,
-                  Ventanropos:
-                    bancoDebito > 0 || bancoCredito > 0
-                      ? ventaNroPOS.trim() || "0"
-                      : "0",
-                }),
-          },
-        },
-      },
-    };
+    // Timestamp ISO YYYY-MM-DDTHH:MM:SS para que registrodiariocaja y
+    // venta.VentaFecha guarden la hora real (el ajuste UTC-4 ya se aplicó
+    // sobre fechaAjustada arriba).
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fechaIso =
+      `${fechaAjustada.getFullYear()}-${pad(fechaAjustada.getMonth() + 1)}-` +
+      `${pad(fechaAjustada.getDate())}T${pad(fechaAjustada.getHours())}:` +
+      `${pad(fechaAjustada.getMinutes())}:${pad(fechaAjustada.getSeconds())}`;
 
-    const xml = js2xml(json, { compact: true, ignoreComment: true, spaces: 4 });
-    const config = {
-      headers: {
-        "Content-Type": "text/xml",
-      },
-    };
     try {
-      await axios.post(
-        import.meta.env.VITE_APP_URL +
-          import.meta.env.VITE_APP_URL_GENEXUS +
-          endpoint,
-        xml,
-        config,
-      );
+      if (isDevolucionMode) {
+        await devolverVenta({
+          VentaFecha: fechaIso,
+          AlmacenOrigenId: Number(user?.LocalId),
+          CajaId: Number(cajaAperturada?.CajaId),
+          UsuarioId: String(user?.id ?? ""),
+          Total2: getSubtotal(cartItems),
+          Productos: SDTProductoItem.map((item) => ({
+            ProductoId: Number(item.Producto.ProductoId),
+            VentaProductoCantidad: Number(item.Producto.VentaProductoCantidad),
+            ProductoUnidad: item.Producto.ProductoUnidad as "U" | "C",
+          })),
+        });
+      } else {
+        await confirmarVenta({
+          VentaFecha: fechaIso,
+          AlmacenOrigenId: Number(user?.LocalId),
+          ClienteId: Number(clienteSeleccionado?.ClienteId),
+          CajaId: Number(cajaAperturada?.CajaId),
+          UsuarioId: String(user?.id ?? ""),
+          VentaPagoTipo: "E",
+          VentaNroFactura: 0,
+          VentaTimbrado: 0,
+          VentaNroPOS:
+            bancoDebito > 0 || bancoCredito > 0
+              ? ventaNroPOS.trim() || "0"
+              : "0",
+          Pagos: {
+            Efectivo: Number(efectivo) + Number(totalRest),
+            Banco: Number(bancoDebito) + Number(bancoCredito),
+            CuentaCliente: Number(cuentaCliente),
+            Voucher: Number(voucher),
+            Transferencia: Number(banco),
+          },
+          Productos: SDTProductoItem.map((item) => ({
+            ProductoId: Number(item.Producto.ProductoId),
+            VentaProductoCantidad: Number(item.Producto.VentaProductoCantidad),
+            ProductoUnidad: item.Producto.ProductoUnidad as "U" | "C",
+            VentaProductoPrecioTotal: Number(
+              item.Producto.VentaProductoPrecioTotal
+            ),
+            Combo: item.Producto.Combo === "S",
+            ComboPrecio: Number(item.Producto.ComboPrecio),
+          })),
+        });
+      }
       if (printTicket) {
-        generateTicketPDF();
+        await generateTicketPDF();
       }
 
       const successMessage = isDevolucionMode
@@ -578,7 +585,24 @@ export default function Sales() {
         allowOutsideClick: false,
         allowEscapeKey: false,
       }).then(() => {
-        window.location.reload();
+        setCarrito([]);
+        setSelectedProductId(null);
+        setBusqueda("");
+        setBusquedaDebounced("");
+        setCurrentPage(1);
+        setShowInvoicePrintModal(false);
+        setClienteSeleccionado({
+          ClienteId: 1,
+          ClienteNombre: "SIN NOMBRE MINORISTA",
+          ClienteRUC: "",
+          ClienteTelefono: "",
+          ClienteTipo: "MI",
+          UsuarioId: "",
+          ClienteApellido: "",
+          ClienteDireccion: "",
+        });
+        setRefreshKey((k) => k + 1);
+        searchInputRef.current?.focus();
       });
     } catch (error) {
       console.error(error);
@@ -604,7 +628,8 @@ export default function Sales() {
     setIsDevolucion(false); // Resetear el checkbox de devolución
   };
 
-  const generateTicketPDF = () => {
+  const generateTicketPDF = async () => {
+    const { jsPDF, autoTable } = await loadPdf();
     // Crear una instancia de jsPDF con un tamaño personalizado (80mm de ancho)
     const doc = new jsPDF({
       orientation: "portrait",
@@ -810,63 +835,70 @@ export default function Sales() {
   };
 
   // --- Función para manejar ENTER en la búsqueda ---
-  const handleSearchSubmit = async () => {
-    if (!busqueda.trim() || !cajaAperturada) return;
+  // Aplica la búsqueda inmediatamente (salteando el debounce) y agrega el
+  // primer producto de la lista filtrada al carrito. Si los resultados ya
+  // están listos para el término actual, los agrega en el acto; si todavía
+  // no llegaron, deja un flag para agregarlos al completar el próximo fetch.
+  const handleSearchSubmit = () => {
+    if (!cajaAperturada) return;
 
-    // Cancelar el debounce pendiente si existe
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
       debounceTimeoutRef.current = null;
     }
 
-    // Actualizar busquedaDebounced inmediatamente para evitar que el debounce se ejecute después
-    setBusquedaDebounced(busqueda);
-
-    try {
-      // Buscar productos usando el servicio de búsqueda (stock del almacén del local del usuario)
-      const data = await searchProductos(
-        busqueda.trim(),
-        1,
-        10,
-        undefined,
-        undefined,
-        user?.LocalId ?? null,
-      );
-      const localUsuario = Number(user?.LocalId);
-      const productosFiltrados = (data.data || []).filter(
-        (p: { LocalId: string | number }) => {
-          const localProd = Number(p.LocalId);
-          return (
-            localProd === 0 || (localUsuario && localProd === localUsuario)
-          );
-        },
-      );
-
-      // Agregar el primer producto encontrado
-      if (productosFiltrados.length > 0) {
-        const primerProducto = productosFiltrados[0];
-
-        // Agregar el producto al carrito
-        agregarProducto({
-          id: primerProducto.ProductoId,
-          nombre: primerProducto.ProductoNombre,
-          precio: primerProducto.ProductoPrecioVenta,
-          precioMayorista: primerProducto.ProductoPrecioVentaMayorista,
-          imagen: primerProducto.ProductoImagen
-            ? `data:image/jpeg;base64,${primerProducto.ProductoImagen}`
-            : logo,
-          stock: primerProducto.ProductoStock,
-          precioUnitario: primerProducto.ProductoPrecioUnitario,
-        });
-
-        // Limpiar la búsqueda
-        setBusqueda("");
-        setBusquedaDebounced("");
-      }
-    } catch (error) {
-      console.error("Error al buscar producto:", error);
+    // Sin término de búsqueda: solo sincronizamos el debounce (no agregamos
+    // nada — evitamos agregar un producto arbitrario de la lista sin filtrar).
+    if (!busqueda.trim()) {
+      setCurrentPage(1);
+      setBusquedaDebounced(busqueda);
+      return;
     }
+
+    // Solo autoseleccionar el primer resultado cuando el término es un código
+    // (solo dígitos). Para búsquedas por nombre dejamos que el usuario elija.
+    const esCodigo = /^\d+$/.test(busqueda.trim());
+    if (!esCodigo) {
+      setCurrentPage(1);
+      setBusquedaDebounced(busqueda);
+      return;
+    }
+
+    // Si los resultados actuales ya corresponden al término tipeado, agregar
+    // el primer producto inmediatamente y limpiar el input para el próximo
+    // escaneo/búsqueda.
+    if (busqueda === busquedaDebounced && !loading) {
+      agregarPrimerProductoVisible();
+      setBusqueda("");
+      return;
+    }
+
+    // Todavía no hay resultados para este término: disparar la búsqueda y
+    // dejar flag para que el useEffect agregue el primer producto al llegar.
+    addFirstOnNextResultsRef.current = true;
+    pendingScanTermRef.current = busqueda;
+    setCurrentPage(1);
+    setBusquedaDebounced(busqueda);
   };
+
+  // Agrega el primer producto visible al carrito (helper compartido por el
+  // Enter inmediato y por el efecto que espera los resultados asíncronos).
+  const agregarPrimerProductoVisible = () => {
+    if (productos.length === 0) return;
+    const p = productos[0];
+    agregarProducto({
+      id: p.ProductoId,
+      nombre: p.ProductoNombre,
+      precio: p.ProductoPrecioVenta,
+      precioMayorista: p.ProductoPrecioVentaMayorista,
+      imagen: resolveProductoImagen(p.ProductoId, p.HasImagen),
+      stock: p.ProductoStock,
+      precioUnitario: p.ProductoPrecioUnitario,
+    });
+  };
+
+  if (!puedeLeerVentas)
+    return <PermissionDenied resource="la pantalla de ventas" />;
 
   return (
     <div className="flex h-screen bg-[#f5f8ff]">
@@ -1184,11 +1216,7 @@ export default function Sales() {
                     precio={p.ProductoPrecioVenta}
                     precioMayorista={p.ProductoPrecioVentaMayorista}
                     clienteTipo={clienteSeleccionado?.ClienteTipo || "MI"}
-                    imagen={
-                      p.ProductoImagen
-                        ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                        : logo
-                    }
+                    imagen={resolveProductoImagen(p.ProductoId, p.HasImagen)}
                     stock={p.ProductoStock}
                     onAdd={() =>
                       agregarProducto({
@@ -1196,9 +1224,7 @@ export default function Sales() {
                         nombre: p.ProductoNombre,
                         precio: p.ProductoPrecioVenta,
                         precioMayorista: p.ProductoPrecioVentaMayorista,
-                        imagen: p.ProductoImagen
-                          ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                          : logo,
+                        imagen: resolveProductoImagen(p.ProductoId, p.HasImagen),
                         stock: p.ProductoStock,
                         precioUnitario: p.ProductoPrecioUnitario,
                       })

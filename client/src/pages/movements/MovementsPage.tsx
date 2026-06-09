@@ -5,11 +5,19 @@ import {
   searchRegistrosDiariosCaja,
   createRegistroDiarioCaja,
   updateRegistroDiarioCaja,
+  type RegistroFilters,
 } from "../../services/registros.service";
+import { getCajas } from "../../services/cajas.service";
+import { getTiposGasto } from "../../services/tipogasto.service";
 import MovementsList from "../../components/movements/MovementsList";
 import Pagination from "../../components/common/Pagination";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 
 // Tipos auxiliares
 interface Movimiento {
@@ -50,6 +58,14 @@ export default function MovementsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string>("RegistroDiarioCajaId");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [filters, setFilters] = useState<RegistroFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [cajas, setCajas] = useState<
+    { CajaId: number; CajaDescripcion: string }[]
+  >([]);
+  const [tiposGasto, setTiposGasto] = useState<
+    { TipoGastoId: number; TipoGastoDescripcion: string }[]
+  >([]);
   const puedeCrear = usePermiso("REGISTRODIARIOCAJA", "crear");
   const puedeEditar = usePermiso("REGISTRODIARIOCAJA", "editar");
   const puedeEliminar = usePermiso("REGISTRODIARIOCAJA", "eliminar");
@@ -65,14 +81,16 @@ export default function MovementsPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
         data = await getRegistrosDiariosCaja(
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       }
       setMovimientosData({
@@ -88,11 +106,40 @@ export default function MovementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
 
   useEffect(() => {
     fetchMovimientos();
   }, [fetchMovimientos]);
+
+  useEffect(() => {
+    // Cargar opciones para los dropdowns de filtros.
+    const loadFilterOptions = async () => {
+      try {
+        const [cajasRes, tiposRes] = await Promise.all([
+          getCajas(1, 200),
+          getTiposGasto(),
+        ]);
+        setCajas(cajasRes?.data || []);
+        setTiposGasto(Array.isArray(tiposRes) ? tiposRes : tiposRes?.data || []);
+      } catch (err) {
+        console.error("Error al cargar opciones de filtros:", err);
+      }
+    };
+    loadFilterOptions();
+  }, []);
+
+  const handleFiltersChange = (newFilters: RegistroFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -193,9 +240,18 @@ export default function MovementsPage() {
   };
 
   if (!puedeLeer)
-    return <div>No tienes permiso para ver los registros diarios de caja.</div>;
-  if (loading) return <div>Cargando registros...</div>;
-  if (error) return <div>Error: {error}</div>;
+    return <PermissionDenied resource="los registros diarios de caja" />;
+  if (loading) return <LoadingState message="Cargando registros..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchMovimientos();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -222,6 +278,12 @@ export default function MovementsPage() {
           setCurrentPage(1);
         }}
         disableEdit={true}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        cajas={cajas}
+        tiposGasto={tiposGasto}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

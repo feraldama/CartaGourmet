@@ -7,6 +7,7 @@ const authMiddleware = require("../middlewares/auth");
 router.get("/", authMiddleware, compraController.getAllCompras);
 router.get("/all", authMiddleware, compraController.getAllComprasSinPaginacion);
 router.get("/search", authMiddleware, compraController.searchCompras);
+router.post("/confirmar", authMiddleware, compraController.confirmar);
 router.get("/:id", authMiddleware, compraController.getCompraById);
 router.get(
   "/:id/productos",

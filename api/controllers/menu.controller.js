@@ -1,4 +1,5 @@
 const Menu = require("../models/menu.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   try {

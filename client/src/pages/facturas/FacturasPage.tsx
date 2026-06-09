@@ -10,6 +10,11 @@ import FacturasList from "../../components/facturas/FacturasList";
 import Pagination from "../../components/common/Pagination";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 
 interface Factura {
   id: string | number;
@@ -180,9 +185,18 @@ export default function FacturasPage() {
     setCurrentPage(1);
   };
 
-  if (loading) return <div>Cargando facturas...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!puedeLeer) return <div>No tienes permiso para ver las facturas</div>;
+  if (!puedeLeer) return <PermissionDenied resource="las facturas" />;
+  if (loading) return <LoadingState message="Cargando facturas..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchFacturas();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">

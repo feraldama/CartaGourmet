@@ -7,9 +7,7 @@ export const formatMiles = (value: number | string): string => {
   };
   const commission = parseToNumber(value);
   const roundedCommission = Math.round(commission);
-  // de-DE usa el mismo separador de miles "." que es-ES, pero SÍ agrupa
-  // los números de 4 dígitos (es-ES los deja sin separador: 5500 -> "5500").
-  return new Intl.NumberFormat("de-DE", {
+  return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 0,
     useGrouping: true,
   }).format(roundedCommission);
@@ -28,7 +26,7 @@ export const formatMilesWithDecimals = (value: number | string): string => {
     return value;
   };
   const commission = parseToNumber(value);
-  return new Intl.NumberFormat("de-DE", {
+  return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     useGrouping: true,
@@ -55,8 +53,7 @@ export interface ClientePresupuesto {
   ClienteApellido: string;
 }
 
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { loadPdf } from "./lazyPdf";
 
 import Swal from "sweetalert2";
 
@@ -85,6 +82,7 @@ export const generatePresupuestoPDF = async (
     return;
   }
 
+  const { jsPDF, autoTable } = await loadPdf();
   const doc = new jsPDF();
   const clienteNombre = cliente
     ? `${cliente.ClienteNombre} ${cliente.ClienteApellido}`.trim()

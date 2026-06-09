@@ -48,6 +48,26 @@ export interface VentaProducto {
   VentaProductoUnitario: number;
 }
 
+export interface VentaFilters {
+  tipo?: "CO" | "CR" | "PO" | "TR";
+  almacenId?: number | string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  estado?: "P" | "C";
+}
+
+const applyVentaFilters = (
+  params: { [key: string]: string | number | undefined },
+  filters?: VentaFilters
+) => {
+  if (!filters) return;
+  if (filters.tipo) params.tipo = filters.tipo;
+  if (filters.almacenId) params.almacenId = filters.almacenId;
+  if (filters.fechaDesde) params.fechaDesde = filters.fechaDesde;
+  if (filters.fechaHasta) params.fechaHasta = filters.fechaHasta;
+  if (filters.estado) params.estado = filters.estado;
+};
+
 export const getVentas = async () => {
   const response = await api.get("/venta");
   return response.data;
@@ -57,7 +77,8 @@ export const getVentasPaginated = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: VentaFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     page,
@@ -65,6 +86,7 @@ export const getVentasPaginated = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyVentaFilters(params, filters);
   try {
     const response = await api.get("/venta/paginated", { params });
     return response.data;
@@ -126,7 +148,8 @@ export const searchVentas = async (
   page = 1,
   limit = 10,
   sortBy?: string,
-  sortOrder?: "asc" | "desc"
+  sortOrder?: "asc" | "desc",
+  filters?: VentaFilters
 ) => {
   const params: { [key: string]: string | number | undefined } = {
     q: searchTerm,
@@ -135,6 +158,7 @@ export const searchVentas = async (
   };
   if (sortBy) params.sortBy = sortBy;
   if (sortOrder) params.sortOrder = sortOrder;
+  applyVentaFilters(params, filters);
   try {
     const response = await api.get("/venta/search", { params });
     return response.data;
@@ -215,6 +239,92 @@ export const getProductosByVentaId = async (ventaId: string | number) => {
       axiosError.response?.data || {
         message: "Error al obtener productos de la venta",
       }
+    );
+  }
+};
+
+export interface ConfirmarVentaProducto {
+  ProductoId: number;
+  VentaProductoCantidad: number;
+  ProductoUnidad: "U" | "C";
+  VentaProductoPrecioTotal: number;
+  Combo: boolean;
+  ComboPrecio: number;
+}
+
+export interface ConfirmarVentaPayload {
+  VentaFecha: string; // ISO YYYY-MM-DD
+  AlmacenOrigenId: number;
+  ClienteId: number;
+  CajaId: number;
+  UsuarioId: string;
+  VentaPagoTipo: string;
+  VentaNroFactura?: number;
+  VentaTimbrado?: number;
+  VentaNroPOS?: string;
+  Pagos: {
+    Efectivo?: number;
+    Banco?: number;
+    CuentaCliente?: number;
+    Voucher?: number;
+    Transferencia?: number;
+  };
+  Productos: ConfirmarVentaProducto[];
+}
+
+export const confirmarVenta = async (payload: ConfirmarVentaPayload) => {
+  try {
+    const response = await api.post("/venta/confirmar", payload);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw (
+      axiosError.response?.data || { message: "Error al confirmar la venta" }
+    );
+  }
+};
+
+export interface RecibirPagoCreditoPayload {
+  Tipo: "V" | "C";
+  ClienteId: number;
+  MontoRecibido: number;
+  CajaId: number;
+  UsuarioId: string;
+  Fecha: string; // ISO YYYY-MM-DD
+  VentaPagoTipo?: "CO" | "PO" | "TR";
+}
+
+export const recibirPagoCredito = async (payload: RecibirPagoCreditoPayload) => {
+  try {
+    const response = await api.post("/ventacreditopago/recibir", payload);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw axiosError.response?.data || { message: "Error al recibir el pago" };
+  }
+};
+
+export interface DevolucionVentaPayload {
+  VentaFecha: string; // ISO YYYY-MM-DD
+  AlmacenOrigenId: number;
+  CajaId: number;
+  UsuarioId: string;
+  Total2: number;
+  Productos: Array<{
+    ProductoId: number;
+    VentaProductoCantidad: number;
+    ProductoUnidad: "U" | "C";
+  }>;
+}
+
+export const devolverVenta = async (payload: DevolucionVentaPayload) => {
+  try {
+    const response = await api.post("/venta/devolucion", payload);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw (
+      axiosError.response?.data || { message: "Error al realizar la devolución" }
     );
   }
 };

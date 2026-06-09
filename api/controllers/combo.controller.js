@@ -1,11 +1,13 @@
 const Combo = require("../models/combo.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   try {
     const combos = await Combo.getAll();
     res.json({ data: combos });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -32,7 +34,8 @@ exports.getAllPaginated = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -44,7 +47,8 @@ exports.getById = async (req, res) => {
     }
     res.json(combo);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -60,7 +64,8 @@ exports.create = async (req, res) => {
     const combo = await Combo.create(req.body);
     res.status(201).json({ message: "Combo creado exitosamente", data: combo });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -72,7 +77,8 @@ exports.update = async (req, res) => {
     }
     res.json({ message: "Combo actualizado exitosamente", data: combo });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -84,7 +90,8 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Combo eliminado exitosamente" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -120,6 +127,7 @@ exports.searchCombos = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar combos" });
   }
 };

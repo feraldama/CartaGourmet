@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import SearchButton from "../../components/common/Input/SearchButton";
 import "../../App.css";
 import {
-  getProductosAll,
+  getProductosPaginated,
+  searchProductos,
   getProductoById,
   updateProducto,
 } from "../../services/productos.service";
 import { getAlmacenes } from "../../services/almacenes.service";
 import ProductCard from "../../components/products/ProductCard";
+import Pagination from "../../components/common/Pagination";
 import { useAuth } from "../../contexts/useAuth";
 import Swal from "sweetalert2";
-import logo from "../../assets/img/logo.jpg";
+import { resolveProductoImagen } from "../../utils/productImage";
 import { useNavigate } from "react-router-dom";
 import ActionButton from "../../components/common/Button/ActionButton";
 import { getLocalById } from "../../services/locales.service";
 import { usePermiso } from "../../hooks/usePermiso";
+import { PermissionDenied } from "../../components/common/ui";
 
 interface AlmacenStockRow {
   AlmacenId: number;
@@ -39,6 +42,7 @@ export default function Inventario() {
     { AlmacenId: number; AlmacenNombre: string }[]
   >([]);
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaDebounced, setBusquedaDebounced] = useState("");
   const [productos, setProductos] = useState<
     {
       ProductoId: number;
@@ -47,7 +51,7 @@ export default function Inventario() {
       ProductoPrecioVenta: number;
       ProductoPrecioPromedio?: string;
       ProductoStock: number;
-      ProductoImagen?: string;
+      HasImagen?: number | boolean;
       ProductoPrecioVentaMayorista: number;
       LocalId: string | number;
       ProductoPrecioUnitario: number;
@@ -56,6 +60,17 @@ export default function Inventario() {
     }[]
   >([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({
+    totalItems: 0,
+    totalPages: 1,
+    currentPage: 1,
+    itemsPerPage: 10,
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addFirstOnNextResultsRef = useRef(false);
   const { user } = useAuth();
   const puedeCrear = usePermiso("INVENTARIO", "crear");
   const puedeEditar = usePermiso("INVENTARIO", "editar");
@@ -69,7 +84,7 @@ export default function Inventario() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getAlmacenes(1, 500).then((res) => {
+    getAlmacenes(1, 200).then((res) => {
       const list = (res.data ?? []).filter(
         (a: { AlmacenId: number }) => a.AlmacenId !== 0
       );
@@ -215,14 +230,66 @@ export default function Inventario() {
     };
   };
 
-  useEffect(() => {
+  const fetchProductos = useCallback(async () => {
     setLoading(true);
-    getProductosAll()
-      .then((data) => {
-        setProductos(data.data || []);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    try {
+      const localUsuario = Number(user?.LocalId);
+      const filters = localUsuario ? { localIdOrZero: localUsuario } : undefined;
+      const data = busquedaDebounced.trim()
+        ? await searchProductos(
+            busquedaDebounced.trim(),
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters
+          )
+        : await getProductosPaginated(
+            currentPage,
+            itemsPerPage,
+            undefined,
+            undefined,
+            filters
+          );
+
+      setProductos(data.data || []);
+      setPagination({
+        totalItems: data.pagination?.totalItems || 0,
+        totalPages: data.pagination?.totalPages || 1,
+        currentPage: data.pagination?.currentPage || 1,
+        itemsPerPage: data.pagination?.itemsPerPage || itemsPerPage,
+      });
+    } catch (error) {
+      console.error("Error al cargar productos:", error);
+      setProductos([]);
+    } finally {
+      setLoading(false);
+    }
+    // refreshKey se incluye a propósito para forzar el re-fetch desde sendRequest
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busquedaDebounced, currentPage, itemsPerPage, user?.LocalId, refreshKey]);
+
+  useEffect(() => {
+    fetchProductos();
+  }, [fetchProductos]);
+
+  useEffect(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setCurrentPage(1);
+    const timeoutId = setTimeout(() => {
+      setBusquedaDebounced(busqueda);
+      debounceTimeoutRef.current = null;
+    }, 500);
+    debounceTimeoutRef.current = timeoutId;
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+    };
+  }, [busqueda]);
 
   useEffect(() => {
     if (user?.LocalId) {
@@ -279,7 +346,7 @@ export default function Inventario() {
         text: "El stock por almacén se actualizó correctamente.",
       }).then(() => {
         setCarrito([]);
-        getProductosAll().then((data) => setProductos(data.data || []));
+        setRefreshKey((k) => k + 1);
       });
     } catch (error: unknown) {
       console.error("Error al actualizar inventario:", error);
@@ -294,6 +361,17 @@ export default function Inventario() {
     }
   };
 
+  const agregarPrimerProductoVisible = () => {
+    if (productos.length === 0) return;
+    const p = productos[0];
+    agregarProducto({
+      id: p.ProductoId,
+      nombre: p.ProductoNombre,
+      imagen: resolveProductoImagen(p.ProductoId, p.HasImagen),
+      stock: p.ProductoStock,
+    });
+  };
+
   const handleSearchSubmit = () => {
     if (!busqueda.trim()) return;
 
@@ -306,31 +384,38 @@ export default function Inventario() {
       return;
     }
 
-    const productosFiltrados = productos.filter(
-      (p) =>
-        (p.ProductoNombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-          (p.ProductoCodigo &&
-            String(p.ProductoCodigo)
-              .toLowerCase()
-              .includes(busqueda.toLowerCase()))) &&
-        (Number(p.LocalId) === 0 || Number(p.LocalId) === Number(user?.LocalId))
-    );
-
-    if (productosFiltrados.length > 0) {
-      const primerProducto = productosFiltrados[0];
-      agregarProducto({
-        id: primerProducto.ProductoId,
-        nombre: primerProducto.ProductoNombre,
-        imagen: primerProducto.ProductoImagen
-          ? `data:image/jpeg;base64,${primerProducto.ProductoImagen}`
-          : logo,
-        stock: primerProducto.ProductoStock,
-      });
-      setBusqueda("");
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
     }
+
+    const esCodigo = /^\d+$/.test(busqueda.trim());
+    if (!esCodigo) {
+      setBusquedaDebounced(busqueda);
+      return;
+    }
+
+    if (busqueda === busquedaDebounced && !loading) {
+      agregarPrimerProductoVisible();
+      setBusqueda("");
+      return;
+    }
+
+    addFirstOnNextResultsRef.current = true;
+    setBusquedaDebounced(busqueda);
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver el inventario.</div>;
+  useEffect(() => {
+    if (!addFirstOnNextResultsRef.current) return;
+    if (loading) return;
+    addFirstOnNextResultsRef.current = false;
+    agregarPrimerProductoVisible();
+    setBusqueda("");
+    searchInputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, productos]);
+
+  if (!puedeLeer) return <PermissionDenied resource="el inventario" />;
 
   return (
     <div className="flex h-screen bg-[#f5f8ff]">
@@ -425,7 +510,7 @@ export default function Inventario() {
                             <input
                               type="number"
                               min={0}
-                              value={pa.ProductoAlmacenStock}
+                              value={pa.ProductoAlmacenStock || ""}
                               onChange={(e) =>
                                 updateStockAlmacen(
                                   p.cartItemId,
@@ -446,7 +531,7 @@ export default function Inventario() {
                                 0,
                                 (p.ProductoCantidadCaja || 1) - 1
                               )}
-                              value={pa.ProductoAlmacenStockUnitario}
+                              value={pa.ProductoAlmacenStockUnitario || ""}
                               onChange={(e) => {
                                 const raw = Number(e.target.value) || 0;
                                 const maxU = Math.max(
@@ -546,32 +631,26 @@ export default function Inventario() {
 
         {/* Contenedor con scroll solo para los productos */}
         <div
-          className="overflow-y-auto"
+          className="flex flex-col"
           style={{ height: "calc(100vh - 120px)" }}
         >
-          <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            }}
-          >
-            {loading ? (
-              <div>Cargando productos...</div>
-            ) : (
-              productos
-                .filter(
-                  (p) =>
-                    (p.ProductoNombre.toLowerCase().includes(
-                      busqueda.toLowerCase()
-                    ) ||
-                      (p.ProductoCodigo &&
-                        String(p.ProductoCodigo)
-                          .toLowerCase()
-                          .includes(busqueda.toLowerCase()))) &&
-                    (Number(p.LocalId) === 0 ||
-                      Number(p.LocalId) === Number(user?.LocalId))
-                )
-                .map((p) => (
+          <div className="overflow-y-auto flex-1 mb-4">
+            <div
+              className="grid gap-4"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              }}
+            >
+              {loading ? (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  Cargando productos...
+                </div>
+              ) : productos.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  No se encontraron productos
+                </div>
+              ) : (
+                productos.map((p) => (
                   <ProductCard
                     key={p.ProductoId}
                     nombre={p.ProductoNombre}
@@ -582,20 +661,17 @@ export default function Inventario() {
                     }
                     precioMayorista={p.ProductoPrecioVentaMayorista}
                     clienteTipo="MI"
-                    imagen={
-                      p.ProductoImagen
-                        ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                        : logo
-                    }
+                    imagen={resolveProductoImagen(p.ProductoId, p.HasImagen)}
                     stock={p.ProductoStock}
                     onAdd={() => {
                       if (puedeCrear) {
                         agregarProducto({
                           id: p.ProductoId,
                           nombre: p.ProductoNombre,
-                          imagen: p.ProductoImagen
-                            ? `data:image/jpeg;base64,${p.ProductoImagen}`
-                            : logo,
+                          imagen: resolveProductoImagen(
+                            p.ProductoId,
+                            p.HasImagen
+                          ),
                           stock: p.ProductoStock,
                         });
                       } else {
@@ -610,8 +686,23 @@ export default function Inventario() {
                     stockUnitario={p.ProductoStockUnitario}
                   />
                 ))
-            )}
+              )}
+            </div>
           </div>
+          {!loading && productos.length > 0 && pagination.totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={pagination.itemsPerPage}
+                onItemsPerPageChange={(newItemsPerPage) => {
+                  setItemsPerPage(newItemsPerPage);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 const Local = require("../models/local.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAllLocales = async (req, res) => {
   try {
@@ -25,7 +26,8 @@ exports.getAllLocales = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -74,7 +76,8 @@ exports.getLocalById = async (req, res) => {
     }
     res.json(local);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -102,7 +105,6 @@ exports.createLocal = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al crear local",
-      error: error.message,
     });
   }
 };
@@ -134,7 +136,6 @@ exports.updateLocal = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al actualizar local",
-      error: error.message,
     });
   }
 };
@@ -154,10 +155,10 @@ exports.deleteLocal = async (req, res) => {
       message: "Local eliminado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Error al eliminar local",
-      error: error.message,
     });
   }
 };

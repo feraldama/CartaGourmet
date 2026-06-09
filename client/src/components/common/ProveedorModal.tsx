@@ -1,14 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
-// Definir la interfaz Proveedor localmente
-interface Proveedor {
-  ProveedorId: number;
-  ProveedorRUC: string;
-  ProveedorNombre: string;
-  ProveedorDireccion?: string;
-  ProveedorTelefono?: string;
-}
+import type { Proveedor } from "../../types";
 
 interface CreateProveedorData {
   ProveedorRUC: string;

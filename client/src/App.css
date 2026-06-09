@@ -1,15 +1,199 @@
 @import "tailwindcss";
 
+/* =========================================================================
+   Technow — Design System (POS / gestión de ventas)
+   Paleta: TRUST NAVY (banking / fintech grade).
+   Referencias visuales: Toast, Square, Verifone, Quickbooks.
+   Base: Tailwind 4 @theme. Las variables expuestas aquí se usan como utilidades
+   (ej. --color-brand-600 → bg-brand-600 / text-brand-600 / border-brand-600).
+
+   Decisiones clave vs paleta anterior (Indigo SaaS):
+   - Brand pasó a azul navy (-700) — más conservador, banking-grade.
+   - Sidebar navy con tinte cálido (#0b1426) en lugar de slate puro.
+   - Status colors a -700 (desaturados) para reducir fatiga visual en jornadas largas.
+   - +1 nivel de superficie (surface-sunken) para tablas densas.
+   - +1 token de texto (text-strong) para totales/montos críticos.
+   - Bordes con leve tinte azul (#d6dee9) en vez de slate puro.
+   ========================================================================= */
+
 @theme {
-  --color-sidebar: #0f172a;
+  /* -----------------------------------------------------------------------
+     1. BRAND (Navy / Blue) — primary actions, enlaces, foco, ítems activos.
+     ----------------------------------------------------------------------- */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8; /* DEFAULT — botones primarios, links */
+  --color-brand-800: #1e40af; /* hover primario                      */
+  --color-brand-900: #1e3a8a; /* sidebar item activo                 */
+  --color-brand-950: #172554;
 
-  --color-primary: #0f172a;
-  --color-secondary: #0f172a;
-  --color-tertiary: #0f172a;
-  --color-quaternary: #0f172a;
-  --color-quinary: #0f172a;
-  --color-senary: #0f172a;
-  --color-septenary: #0f172a;
+  /* Alias primary: mismos valores que brand. Mantenemos `--color-primary`
+     para compat con código legacy (Dashboard usaba text-primary-900). */
+  --color-primary: #1d4ed8;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  --color-primary-950: #172554;
 
+  /* -----------------------------------------------------------------------
+     2. NEUTRAL / Surface — fondos, texto, bordes.
+        Usamos slate con tinte cálido + bordes blue-tint (más fintech).
+     ----------------------------------------------------------------------- */
+  --color-surface: #ffffff;        /* Cards, modales                       */
+  --color-surface-alt: #f7f9fc;    /* Fondo de página (warm slate)         */
+  --color-surface-sunken: #eef2f7; /* Filas alternas, secciones anidadas   */
+  --color-surface-muted: #f1f5f9;  /* Bloques secundarios / secondary btn  */
+
+  --color-border: #d6dee9;         /* Borde default — blue-tinted          */
+  --color-border-strong: #b8c4d2;  /* Hover/focus borders                  */
+
+  --color-text-strong: #020617;    /* Totales, montos críticos (max contrast) */
+  --color-text: #0f172a;           /* Texto primario                        */
+  --color-text-muted: #475569;     /* Texto secundario, labels              */
+  --color-text-subtle: #94a3b8;    /* Placeholders / disabled / hints       */
+  --color-text-inverse: #ffffff;   /* Sobre fondos oscuros                  */
+
+  /* Sidebar — navy con tinte cálido, no slate puro */
+  --color-sidebar: #0b1426;
+  --color-sidebar-hover: #1a2540;
+  --color-sidebar-active: #1e3a8a; /* brand-900                             */
+  --color-sidebar-text: #cbd5e1;
+  --color-sidebar-text-active: #ffffff;
+
+  /* -----------------------------------------------------------------------
+     3. SEMÁNTICA DE ESTADO — ventas, créditos, stock, validaciones.
+        Status -700 (desaturados) por defecto: menos fatiga en uso prolongado.
+     ----------------------------------------------------------------------- */
+  /* Éxito — venta aprobada, cobro confirmado, apertura de caja OK */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d; /* DEFAULT */
+  --color-success-800: #166534; /* hover    */
+
+  /* Advertencia — crédito pendiente, stock bajo, por vencer */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309; /* DEFAULT */
+  --color-warning-800: #92400e; /* hover    */
+
+  /* Peligro — eliminar, deuda vencida, error crítico */
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c; /* DEFAULT */
+  --color-danger-800: #991b1b; /* hover    */
+
+  /* Info — avisos neutros, tips, estados secundarios */
+  --color-info-50: #f0f9ff;
+  --color-info-100: #e0f2fe;
+  --color-info-500: #0ea5e9;
+  --color-info-600: #0284c7;
+  --color-info-700: #0369a1; /* DEFAULT */
+  --color-info-800: #075985; /* hover    */
+
+  /* -----------------------------------------------------------------------
+     4. TIPOGRAFÍA
+        - font-display (Baloo 2): encabezados, brand, números grandes de venta
+        - font-ui (Inter):        body, tablas, forms, datos densos
+        - font-baloo:             alias legacy (se mantiene para no romper)
+     ----------------------------------------------------------------------- */
+  --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
   --font-baloo: "Baloo 2", sans-serif;
+
+  /* Monto/numeric — habilita tabular-nums en cualquier elemento con font-num */
+  --font-num: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* -----------------------------------------------------------------------
+     5. RADIOS  (aplican a bg-*, border-*, card, button)
+     ----------------------------------------------------------------------- */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;  /* inputs / botones por defecto */
+  --radius-lg: 8px;  /* cards / modales               */
+  --radius-xl: 12px; /* elevated cards                */
+  --radius-2xl: 16px;
+
+  /* -----------------------------------------------------------------------
+     6. SOMBRAS — sutiles, sin "glow" decorativo.
+        Ajustadas al nuevo navy: tono base de la sombra es navy-tint, no slate.
+     ----------------------------------------------------------------------- */
+  --shadow-card: 0 1px 2px 0 rgba(11, 20, 38, 0.04),
+    0 1px 3px 0 rgba(11, 20, 38, 0.06);
+  --shadow-elevated: 0 4px 6px -1px rgba(11, 20, 38, 0.08),
+    0 2px 4px -2px rgba(11, 20, 38, 0.06);
+  --shadow-modal: 0 20px 25px -5px rgba(11, 20, 38, 0.14),
+    0 10px 10px -5px rgba(11, 20, 38, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(29, 78, 216, 0.25); /* brand-700 alpha */
+}
+
+/* =========================================================================
+   Defaults de aplicación
+   ========================================================================= */
+html,
+body {
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Monto / números — úsalo con la clase utilitaria `.font-num` */
+.font-num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Headings por defecto con la display font */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  color: var(--color-text);
+}
+
+/* Foco visible consistente para accesibilidad */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollbar discreto (opcional, no afecta Firefox salvo scrollbar-width) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
 }

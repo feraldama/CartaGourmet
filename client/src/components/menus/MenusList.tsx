@@ -25,6 +25,7 @@ interface MenusListProps {
   onSearch: (value: string) => void;
   onKeyPress?: React.KeyboardEventHandler<HTMLInputElement>;
   onSearchSubmit: () => void;
+  pagination?: { totalItems?: number };
 }
 
 export default function MenusList({
@@ -40,6 +41,7 @@ export default function MenusList({
   onSearch,
   onKeyPress,
   onSearchSubmit,
+  pagination,
 }: MenusListProps) {
   const [formData, setFormData] = useState({
     MenuId: "",
@@ -102,6 +104,11 @@ export default function MenusList({
               icon={PlusIcon}
             />
           )}
+        </div>
+      </div>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-gray-600">
+          Mostrando {menus.length} de {pagination?.totalItems ?? menus.length} menús
         </div>
       </div>
       <DataTable<Menu>

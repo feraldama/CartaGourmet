@@ -10,14 +10,13 @@ import CajasList from "../../components/cajas/CajasList";
 import Pagination from "../../components/common/Pagination";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 
-interface Caja {
-  id: string | number;
-  CajaId: string | number;
-  CajaDescripcion: string;
-  CajaMonto: number;
-  [key: string]: unknown;
-}
+import type { Caja } from "../../types";
 
 interface Pagination {
   totalItems: number;
@@ -177,10 +176,19 @@ export default function CajasPage() {
     setCurrentPage(1);
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver las cajas</div>;
+  if (!puedeLeer) return <PermissionDenied resource="las cajas" />;
 
-  if (loading) return <div>Cargando cajas...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <LoadingState message="Cargando cajas..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchCajas();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">

@@ -29,8 +29,29 @@ const proveedorRoutes = require("./routes/proveedor.routes");
 const app = express();
 
 // Configuración de CORS
+// Por defecto aceptamos la red local del POS. Para extender, definir
+// ALLOWED_ORIGINS en .env como lista separada por comas, o "*" para abrir
+// a todos los orígenes (útil solo en LAN cerrada).
+const defaultOrigins = [
+  "http://localhost:3008",
+  "http://127.0.0.1:3008",
+  "http://192.168.0.17:3008",
+];
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsOrigins = allowedOrigins.length ? allowedOrigins : defaultOrigins;
+const allowAny = corsOrigins.includes("*");
+
 const corsOptions = {
-  origin: "*", // Permite todas las origenes
+  origin: (origin, cb) => {
+    // Permitir tools (curl, Postman, server-to-server) sin header Origin
+    if (!origin) return cb(null, true);
+    if (allowAny) return cb(null, true);
+    if (corsOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error(`Origin ${origin} no permitido por CORS`));
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,

@@ -34,14 +34,17 @@ const Menu = {
       params.push(parseInt(itemsPerPage), parseInt(offset));
 
       const query = `
-        SELECT SQL_CALC_FOUND_ROWS * FROM menu
+        SELECT * FROM menu
         ${where}
         ORDER BY ${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
+      // Count query reuses the same WHERE so totals stay in sync with filters.
+      const countParams = params.slice(0, params.length - 2);
+      const countSql = `SELECT COUNT(*) AS total FROM menu ${where}`;
       db.query(query, params, (err, results) => {
         if (err) return reject(err);
-        db.query("SELECT FOUND_ROWS() as total", (err2, totalResult) => {
+        db.query(countSql, countParams, (err2, totalResult) => {
           if (err2) return reject(err2);
           resolve({
             data: results,

@@ -6,9 +6,15 @@ import {
   searchProductos,
   createProducto,
   updateProducto,
+  type ProductoFilters,
 } from "../../services/productos.service";
 import ProductsList from "../../components/products/ProductsList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
 
@@ -65,6 +71,8 @@ export default function ProductsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string | undefined>();
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<ProductoFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const puedeCrear = usePermiso("PRODUCTOS", "crear");
   const puedeEditar = usePermiso("PRODUCTOS", "editar");
@@ -81,14 +89,16 @@ export default function ProductsPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
         data = await getProductosPaginated(
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       }
       setProductosData({
@@ -104,7 +114,19 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
+
+  const handleFiltersChange = (newFilters: ProductoFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     fetchProductos();
@@ -218,9 +240,18 @@ export default function ProductsPage() {
     setCurrentPage(1);
   };
 
-  if (!puedeLeer) return <div>No tienes permiso para ver los productos</div>;
-  if (loading) return <div>Cargando productos...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los productos" />;
+  if (loading) return <LoadingState message="Cargando productos..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchProductos();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
@@ -262,6 +293,10 @@ export default function ProductsPage() {
           setSortOrder(order);
           setCurrentPage(1);
         }}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

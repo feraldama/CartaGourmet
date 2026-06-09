@@ -1,4 +1,5 @@
 const Proveedor = require("../models/proveedor.model");
+const { sendError } = require("../utils/errors");
 
 // getAllProveedores
 exports.getAllProveedores = async (req, res) => {
@@ -26,7 +27,8 @@ exports.getAllProveedores = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -77,7 +79,8 @@ exports.getProveedorById = async (req, res) => {
     }
     res.json(proveedor);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -109,7 +112,6 @@ exports.createProveedor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al crear proveedor",
-      error: error.message,
     });
   }
 };
@@ -144,7 +146,6 @@ exports.updateProveedor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al actualizar proveedor",
-      error: error.message,
     });
   }
 };
@@ -166,6 +167,7 @@ exports.deleteProveedor = async (req, res) => {
       message: "Proveedor eliminado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -181,7 +183,6 @@ exports.deleteProveedor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al eliminar proveedor",
-      error: error.message,
     });
   }
 };
@@ -192,6 +193,7 @@ exports.getAllProveedoresSinPaginacion = async (req, res) => {
     const proveedores = await Proveedor.getAll();
     res.json({ data: proveedores });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };

@@ -1,11 +1,13 @@
 const TipoGasto = require("../models/tipogasto.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   try {
     const tipos = await TipoGasto.getAll();
     res.json(tipos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -32,7 +34,8 @@ exports.getAllPaginated = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -44,7 +47,8 @@ exports.getById = async (req, res) => {
     }
     res.json(tipoGasto);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -55,7 +59,8 @@ exports.create = async (req, res) => {
       .status(201)
       .json({ message: "Tipo de gasto creado exitosamente", data: tipoGasto });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -70,7 +75,8 @@ exports.update = async (req, res) => {
       data: tipoGasto,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -82,6 +88,7 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Tipo de gasto eliminado exitosamente" });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -92,7 +99,7 @@ exports.delete = async (req, res) => {
           "No se puede eliminar el tipo de gasto porque tiene movimientos asociados.",
       });
     }
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -129,6 +136,7 @@ exports.searchTipoGastos = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar tipos de gasto" });
   }
 };

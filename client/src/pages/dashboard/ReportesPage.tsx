@@ -1,10 +1,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { usePermiso } from "../../hooks/usePermiso";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { PermissionDenied } from "../../components/common/ui";
+import { loadPdf } from "../../utils/lazyPdf";
 import api from "../../services/api";
 import { formatMiles } from "../../utils/utils";
 import { getAllClientesSinPaginacion } from "../../services/clientes.service";
+import {
+  getReporteMovimientosProductos,
+  getReporteMasVendidos,
+  type ProductoMovimientoRow,
+  type ProductoMasVendidoRow,
+} from "../../services/productos.service";
 import {
   getRegistrosDiariosCajaPorRango,
   type RegistroDiarioCajaRow,
@@ -69,6 +75,9 @@ interface ProductoStockReporte {
   ProductoId: number;
   ProductoCodigo: string;
   ProductoNombre: string;
+  ProductoCantidadCaja: number;
+  ProductoPrecioPromedio: number;
+  ProductoPrecioVenta: number;
   ProductoStock: number;
   ProductoStockUnitario: number;
   productoAlmacen: ProductoAlmacenStock[];
@@ -266,6 +275,25 @@ const ReportesPage: React.FC = () => {
   const [fechaDesdeCierre, setFechaDesdeCierre] = useState(() => getHoyISO());
   const [fechaHastaCierre, setFechaHastaCierre] = useState(() => getHoyISO());
 
+  // Estado del reporte "Productos vendidos y comprados"
+  const [fechaDesdeMov, setFechaDesdeMov] = useState(() => {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    return primerDiaMes.toISOString().split("T")[0];
+  });
+  const [fechaHastaMov, setFechaHastaMov] = useState(() => getHoyISO());
+
+  // Estado del reporte "Productos más vendidos"
+  const [fechaDesdeTop, setFechaDesdeTop] = useState(() => {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    return primerDiaMes.toISOString().split("T")[0];
+  });
+  const [fechaHastaTop, setFechaHastaTop] = useState(() => getHoyISO());
+
+  // Cuál tarjeta de reporte está abierta en modal (slug del reporte) o null
+  const [reporteActivo, setReporteActivo] = useState<string | null>(null);
+
   const totalPaginasCierre = Math.max(
     1,
     Math.ceil(resumenesCierre.length / PAGE_SIZE),
@@ -319,7 +347,7 @@ const ReportesPage: React.FC = () => {
     cargarClientes();
   }, []);
 
-  if (!puedeLeer) return <div>No tienes permiso para ver los reportes</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los reportes" />;
 
   // Función para formatear fecha de aaaa-mm-dd a dd-mm-aaaa
   const formatearFecha = (fecha: string): string => {
@@ -345,6 +373,7 @@ const ReportesPage: React.FC = () => {
     try {
       const res = await api.get("/venta/pendientes");
       const deudas: DeudaCliente[] = res.data.data || [];
+      const { jsPDF, autoTable } = await loadPdf();
       const doc = new jsPDF();
       doc.setFontSize(18);
       doc.text("Créditos Pendientes a Cobrar", 14, 18);
@@ -409,6 +438,7 @@ const ReportesPage: React.FC = () => {
       const reporte: ReporteData = res.data.data;
       const esTodos = clienteSeleccionado.toUpperCase() === "TODOS";
 
+      const { jsPDF, autoTable } = await loadPdf();
       const doc = new jsPDF({ orientation: esTodos ? "landscape" : "portrait" });
       let y = 20;
 
@@ -596,72 +626,173 @@ const ReportesPage: React.FC = () => {
         ? data.productos
         : [];
 
-      const productosOrdenados = [...productos].sort((a, b) =>
-        String(a.ProductoNombre ?? "").localeCompare(
-          String(b.ProductoNombre ?? ""),
-        ),
+      // Para cada producto calculo:
+      //   totalUnidades  = stockCajas * cantCaja + stockUnitario
+      //   precioUnitario = precioPromedio / cantCaja (si cantCaja > 0)
+      //   valorStock     = stockCajas * precioPromedio +
+      //                    stockUnitario * precioUnitario
+      // Solo se listan productos con stock > 0, ordenados por valor DESC.
+      const enriquecidos = productos
+        .map((p) => {
+          const cantCaja = Number(p.ProductoCantidadCaja) || 0;
+          const stockCajas = Number(p.ProductoStock) || 0;
+          const stockUni = Number(p.ProductoStockUnitario) || 0;
+          const precioCajaCosto = Number(p.ProductoPrecioPromedio) || 0;
+          const precioUniCosto =
+            cantCaja > 0 ? precioCajaCosto / cantCaja : 0;
+          const totalUnidades = stockCajas * cantCaja + stockUni;
+          const valorStock =
+            stockCajas * precioCajaCosto + stockUni * precioUniCosto;
+          return {
+            p,
+            cantCaja,
+            stockCajas,
+            stockUni,
+            totalUnidades,
+            precioCajaCosto,
+            precioUniCosto,
+            valorStock,
+          };
+        })
+        .filter((r) => r.totalUnidades > 0)
+        .sort((a, b) => b.valorStock - a.valorStock);
+
+      const capitalTotal = enriquecidos.reduce((acc, r) => acc + r.valorStock, 0);
+      const totalCajas = enriquecidos.reduce((acc, r) => acc + r.stockCajas, 0);
+      const totalUnidadesSueltas = enriquecidos.reduce(
+        (acc, r) => acc + r.stockUni,
+        0,
       );
 
+      const { jsPDF, autoTable } = await loadPdf();
       const doc = new jsPDF({ orientation: "landscape" });
-      let y = 20;
+      let y = 18;
 
-      doc.setFontSize(18);
-      doc.text("Reporte de stock total y por almacén", 14, y);
-      y += 10;
-
-      const tableRows: string[][] = [];
-      productosOrdenados.forEach((p: ProductoStockReporte) => {
-        tableRows.push([
-          String(p.ProductoCodigo ?? ""),
-          String(p.ProductoNombre ?? ""),
-          String(p.ProductoStock ?? 0),
-          String(p.ProductoStockUnitario ?? 0),
-        ]);
-        (p.productoAlmacen || []).forEach((pa: ProductoAlmacenStock) => {
-          tableRows.push([
-            "",
-            `  - ${pa.AlmacenNombre ?? ""}`,
-            String(pa.ProductoAlmacenStock ?? 0),
-            String(pa.ProductoAlmacenStockUnitario ?? 0),
-          ]);
-        });
-      });
-
-      autoTable(doc, {
-        head: [["Código", "Producto", "Stock (cajas)", "Stock unitario"]],
-        body: tableRows.length > 0 ? tableRows : [["Sin datos", "", "", ""]],
-        startY: y,
-        theme: "grid",
-        headStyles: { fillColor: [22, 163, 74] },
-        styles: { fontSize: 9 },
-        margin: { left: 14, right: 14 },
-        columnStyles: {
-          0: { cellWidth: 28 },
-          1: { cellWidth: "auto" },
-          2: { cellWidth: 35 },
-          3: { cellWidth: 35 },
-        },
-      });
-
-      y =
-        (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
-          .finalY + 10;
-
+      doc.setFontSize(16);
+      doc.text("Reporte de stock valorizado", 14, y);
+      y += 7;
       doc.setFontSize(10);
       doc.text(
-        `Total productos: ${
-          productosOrdenados.length
-        } — Generado: ${new Date().toLocaleDateString("es-PY")}`,
+        `Generado: ${new Date().toLocaleDateString("es-PY")} — ${enriquecidos.length} producto(s) con stock`,
         14,
         y,
       );
+      y += 4;
+
+      if (enriquecidos.length === 0) {
+        doc.setFontSize(11);
+        doc.text("No hay productos con stock.", 14, y + 8);
+      } else {
+        const tableRows: (string | { content: string; styles?: object })[][] = [];
+        enriquecidos.forEach((r, idx) => {
+          const { p } = r;
+          tableRows.push([
+            String(idx + 1),
+            String(p.ProductoCodigo ?? ""),
+            String(p.ProductoNombre ?? ""),
+            r.cantCaja ? String(r.cantCaja) : "-",
+            `${formatMiles(r.stockCajas)} cj / ${formatMiles(r.stockUni)} un`,
+            formatMiles(r.totalUnidades),
+            formatMiles(r.precioCajaCosto),
+            formatMiles(r.valorStock),
+          ]);
+          (p.productoAlmacen || [])
+            .filter(
+              (pa) =>
+                (pa.ProductoAlmacenStock ?? 0) > 0 ||
+                (pa.ProductoAlmacenStockUnitario ?? 0) > 0,
+            )
+            .forEach((pa) => {
+              tableRows.push([
+                "",
+                "",
+                {
+                  content: `   · ${pa.AlmacenNombre ?? ""}`,
+                  styles: { textColor: [90, 90, 90], fontStyle: "italic" },
+                },
+                "",
+                {
+                  content: `${formatMiles(pa.ProductoAlmacenStock ?? 0)} cj / ${formatMiles(pa.ProductoAlmacenStockUnitario ?? 0)} un`,
+                  styles: { textColor: [90, 90, 90], fontStyle: "italic" },
+                },
+                "",
+                "",
+                "",
+              ]);
+            });
+        });
+
+        autoTable(doc, {
+          head: [
+            [
+              "#",
+              "Código",
+              "Producto",
+              "Cant. caja",
+              "Stock (cj/un)",
+              "Total unid.",
+              "P. costo caja",
+              "Valor stock",
+            ],
+          ],
+          body: tableRows,
+          startY: y + 4,
+          theme: "grid",
+          headStyles: { fillColor: [29, 78, 216], fontSize: 9 },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          columnStyles: {
+            0: { cellWidth: 10, halign: "right" },
+            1: { cellWidth: 32 },
+            2: { cellWidth: "auto" },
+            3: { cellWidth: 18, halign: "right" },
+            4: { cellWidth: 34, halign: "right" },
+            5: { cellWidth: 22, halign: "right" },
+            6: { cellWidth: 28, halign: "right" },
+            7: { cellWidth: 32, halign: "right" },
+          },
+        });
+
+        y =
+          (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
+            .finalY + 10;
+
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 18;
+        }
+
+        doc.setFontSize(13);
+        doc.text("RESUMEN", 14, y);
+        y += 7;
+        doc.setFontSize(10);
+        doc.text(
+          `Productos con stock: ${enriquecidos.length}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Total cajas: ${formatMiles(totalCajas)} cj — Total unidades sueltas: ${formatMiles(totalUnidadesSueltas)} un`,
+          14,
+          y,
+        );
+        y += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(
+          `CAPITAL INMOVILIZADO EN STOCK: Gs. ${formatMiles(capitalTotal)}`,
+          14,
+          y,
+        );
+        doc.setFont("helvetica", "normal");
+      }
 
       const nombreArchivo = `reporte_stock_${new Date()
         .toISOString()
         .slice(0, 10)}.pdf`;
       doc.save(nombreArchivo);
-
-      // Abrir en nueva pestaña con blob URL (evita límite de data URL y muestra el PDF correctamente)
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
@@ -670,6 +801,370 @@ const ReportesPage: React.FC = () => {
       const error = err as { response?: { data?: { message?: string } } };
       setError(
         error.response?.data?.message || "Error al generar el reporte de stock",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerarReporteMovimientos = async () => {
+    if (!fechaDesdeMov || !fechaHastaMov) {
+      setError("Debes seleccionar ambas fechas");
+      return;
+    }
+    if (new Date(fechaDesdeMov) > new Date(fechaHastaMov)) {
+      setError("La fecha desde no puede ser mayor que la fecha hasta");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getReporteMovimientosProductos(
+        fechaDesdeMov,
+        fechaHastaMov,
+      );
+      const productos: ProductoMovimientoRow[] = data?.productos ?? [];
+
+      const { jsPDF, autoTable } = await loadPdf();
+      const doc = new jsPDF({ orientation: "landscape" });
+      let y = 18;
+
+      // Título y período
+      doc.setFontSize(16);
+      doc.text("Reporte de productos vendidos y comprados", 14, y);
+      y += 7;
+      doc.setFontSize(10);
+      doc.text(
+        `Período: ${formatearFecha(fechaDesdeMov)} al ${formatearFecha(fechaHastaMov)}`,
+        14,
+        y,
+      );
+      y += 6;
+
+      if (productos.length === 0) {
+        doc.setFontSize(11);
+        doc.text("Sin movimientos en el período seleccionado.", 14, y + 6);
+      } else {
+        // Formatea "5 cj / 12 un". Si una parte es 0, igual se muestra para
+        // mantener alineación visual entre filas.
+        const fmtCjUn = (cajas: number, unidades: number) =>
+          `${formatMiles(cajas)} cj / ${formatMiles(unidades)} un`;
+
+        // Filas: una por producto
+        const rows = productos.map((p) => {
+          const ganancia = p.MontoVendido - p.CostoVendido;
+          const margen =
+            p.MontoVendido > 0 ? (ganancia / p.MontoVendido) * 100 : 0;
+          return [
+            String(p.ProductoCodigo ?? ""),
+            String(p.ProductoNombre ?? ""),
+            fmtCjUn(p.CantidadVendidaCajas, p.CantidadVendidaUnidades),
+            fmtCjUn(p.CantidadCompradaCajas, p.CantidadCompradaUnidades),
+            formatMiles(p.MontoVendido),
+            formatMiles(p.CostoVendido),
+            formatMiles(ganancia),
+            `${margen.toFixed(1)}%`,
+          ];
+        });
+
+        autoTable(doc, {
+          head: [
+            [
+              "Código",
+              "Producto",
+              "Cant. vend. (cj/un)",
+              "Cant. comp. (cj/un)",
+              "Monto venta",
+              "Costo venta",
+              "Ganancia",
+              "Margen",
+            ],
+          ],
+          body: rows,
+          startY: y + 2,
+          theme: "grid",
+          headStyles: { fillColor: [29, 78, 216], fontSize: 9 }, // brand-700
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          columnStyles: {
+            0: { cellWidth: 22 },
+            1: { cellWidth: "auto" },
+            2: { cellWidth: 32, halign: "right" },
+            3: { cellWidth: 32, halign: "right" },
+            4: { cellWidth: 28, halign: "right" },
+            5: { cellWidth: 28, halign: "right" },
+            6: { cellWidth: 28, halign: "right" },
+            7: { cellWidth: 18, halign: "right" },
+          },
+        });
+
+        y =
+          (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
+            .finalY + 10;
+
+        // Totales generales
+        const totales = productos.reduce(
+          (acc, p) => {
+            acc.cantidadVendidaCajas += p.CantidadVendidaCajas;
+            acc.cantidadVendidaUnidades += p.CantidadVendidaUnidades;
+            acc.cantidadCompradaCajas += p.CantidadCompradaCajas;
+            acc.cantidadCompradaUnidades += p.CantidadCompradaUnidades;
+            acc.montoVendido += p.MontoVendido;
+            acc.costoVendido += p.CostoVendido;
+            acc.montoComprado += p.MontoComprado;
+            return acc;
+          },
+          {
+            cantidadVendidaCajas: 0,
+            cantidadVendidaUnidades: 0,
+            cantidadCompradaCajas: 0,
+            cantidadCompradaUnidades: 0,
+            montoVendido: 0,
+            costoVendido: 0,
+            montoComprado: 0,
+          },
+        );
+        const gananciaTotal = totales.montoVendido - totales.costoVendido;
+        const margenPromedio =
+          totales.montoVendido > 0
+            ? (gananciaTotal / totales.montoVendido) * 100
+            : 0;
+
+        // Si no entra el resumen en la página actual, salto a una nueva
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 60) {
+          doc.addPage();
+          y = 18;
+        }
+
+        doc.setFontSize(13);
+        doc.text("RESUMEN GENERAL", 14, y);
+        y += 7;
+        doc.setFontSize(10);
+        doc.text(
+          `Productos con movimiento     : ${productos.length}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Cantidad vendida (cj / un)   : ${formatMiles(totales.cantidadVendidaCajas)} cj / ${formatMiles(totales.cantidadVendidaUnidades)} un`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Cantidad comprada (cj / un)  : ${formatMiles(totales.cantidadCompradaCajas)} cj / ${formatMiles(totales.cantidadCompradaUnidades)} un`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Monto total ventas       : Gs. ${formatMiles(totales.montoVendido)}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Costo total ventas       : Gs. ${formatMiles(totales.costoVendido)}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Monto total compras      : Gs. ${formatMiles(totales.montoComprado)}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.setFontSize(11);
+        doc.text(
+          `Ganancia total           : Gs. ${formatMiles(gananciaTotal)}   |   Margen promedio: ${margenPromedio.toFixed(1)}%`,
+          14,
+          y,
+        );
+      }
+
+      const nombreArchivo = `reporte_movimientos_productos_${fechaDesdeMov}_${fechaHastaMov}.pdf`;
+      doc.save(nombreArchivo);
+      const blob = doc.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      const e = err as { message?: string };
+      setError(
+        e?.message || "Error al generar el reporte de productos vendidos/comprados",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Convierte un total de unidades a "cajas + unidades" usando cantidadCaja.
+  // Ej: 15 unidades con cantidadCaja=12 → 1 caja y 3 unidades.
+  const dividirEnCajasYUnidades = (
+    totalUnidades: number,
+    cantidadCaja: number,
+  ): { cajas: number; unidades: number } => {
+    if (!cantidadCaja || cantidadCaja <= 0) {
+      return { cajas: 0, unidades: Math.trunc(totalUnidades) };
+    }
+    const total = Math.trunc(totalUnidades);
+    const cajas = Math.trunc(total / cantidadCaja);
+    const unidades = total - cajas * cantidadCaja;
+    return { cajas, unidades };
+  };
+
+  const handleGenerarReporteMasVendidos = async () => {
+    if (!fechaDesdeTop || !fechaHastaTop) {
+      setError("Debes seleccionar ambas fechas");
+      return;
+    }
+    if (new Date(fechaDesdeTop) > new Date(fechaHastaTop)) {
+      setError("La fecha desde no puede ser mayor que la fecha hasta");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getReporteMasVendidos(fechaDesdeTop, fechaHastaTop);
+      const productos: ProductoMasVendidoRow[] = data?.productos ?? [];
+
+      const { jsPDF, autoTable } = await loadPdf();
+      const doc = new jsPDF({ orientation: "landscape" });
+      let y = 18;
+
+      doc.setFontSize(16);
+      doc.text("Reporte de productos más vendidos", 14, y);
+      y += 7;
+      doc.setFontSize(10);
+      doc.text(
+        `Período: ${formatearFecha(fechaDesdeTop)} al ${formatearFecha(fechaHastaTop)}`,
+        14,
+        y,
+      );
+      y += 6;
+
+      if (productos.length === 0) {
+        doc.setFontSize(11);
+        doc.text("Sin ventas en el período seleccionado.", 14, y + 6);
+      } else {
+        const fmtCjUn = (cajas: number, unidades: number) =>
+          `${formatMiles(cajas)} cj / ${formatMiles(unidades)} un`;
+
+        const rows = productos.map((p, idx) => {
+          const vendido = dividirEnCajasYUnidades(
+            p.CantidadVendidaTotalUnidades,
+            p.ProductoCantidadCaja,
+          );
+          const ganancia = p.MontoVendido - p.CostoVendido;
+          return [
+            String(idx + 1),
+            String(p.ProductoCodigo ?? ""),
+            String(p.ProductoNombre ?? ""),
+            fmtCjUn(vendido.cajas, vendido.unidades),
+            formatMiles(p.ProductoPrecioVenta),
+            formatMiles(p.ProductoPrecioPromedio),
+            formatMiles(ganancia),
+            fmtCjUn(p.ProductoStock, p.ProductoStockUnitario),
+          ];
+        });
+
+        autoTable(doc, {
+          head: [
+            [
+              "#",
+              "Código",
+              "Producto",
+              "Cant. vendida (cj/un)",
+              "Precio venta",
+              "Precio costo",
+              "Ganancia",
+              "Stock actual (cj/un)",
+            ],
+          ],
+          body: rows,
+          startY: y + 2,
+          theme: "grid",
+          headStyles: { fillColor: [29, 78, 216], fontSize: 9 },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          columnStyles: {
+            0: { cellWidth: 10, halign: "right" },
+            1: { cellWidth: 32 },
+            2: { cellWidth: "auto" },
+            3: { cellWidth: 34, halign: "right" },
+            4: { cellWidth: 26, halign: "right" },
+            5: { cellWidth: 26, halign: "right" },
+            6: { cellWidth: 28, halign: "right" },
+            7: { cellWidth: 34, halign: "right" },
+          },
+        });
+
+        y =
+          (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
+            .finalY + 10;
+
+        const totales = productos.reduce(
+          (acc, p) => {
+            acc.totalUnidades += p.CantidadVendidaTotalUnidades;
+            acc.montoVendido += p.MontoVendido;
+            acc.costoVendido += p.CostoVendido;
+            return acc;
+          },
+          { totalUnidades: 0, montoVendido: 0, costoVendido: 0 },
+        );
+        const gananciaTotal = totales.montoVendido - totales.costoVendido;
+
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 18;
+        }
+
+        doc.setFontSize(13);
+        doc.text("RESUMEN", 14, y);
+        y += 7;
+        doc.setFontSize(10);
+        doc.text(`Productos vendidos: ${productos.length}`, 14, y);
+        y += 6;
+        doc.text(
+          `Total unidades vendidas: ${formatMiles(totales.totalUnidades)} un`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Monto total ventas: Gs. ${formatMiles(totales.montoVendido)}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.text(
+          `Costo total ventas: Gs. ${formatMiles(totales.costoVendido)}`,
+          14,
+          y,
+        );
+        y += 6;
+        doc.setFontSize(11);
+        doc.text(
+          `Ganancia total: Gs. ${formatMiles(gananciaTotal)}`,
+          14,
+          y,
+        );
+      }
+
+      const nombreArchivo = `reporte_mas_vendidos_${fechaDesdeTop}_${fechaHastaTop}.pdf`;
+      doc.save(nombreArchivo);
+      const blob = doc.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      const e = err as { message?: string };
+      setError(
+        e?.message || "Error al generar el reporte de productos más vendidos",
       );
     } finally {
       setLoading(false);
@@ -711,8 +1206,10 @@ const ReportesPage: React.FC = () => {
     }
   };
 
-  const exportarCierrePDF = () => {
+
+  const exportarCierrePDF = async () => {
     if (resumenesCierre.length === 0) return;
+    const { jsPDF, autoTable } = await loadPdf();
     const doc = new jsPDF({ orientation: "landscape", format: "a4" });
     doc.setFontSize(14);
     doc.text(
@@ -808,160 +1305,176 @@ const ReportesPage: React.FC = () => {
     setTimeout(() => URL.revokeObjectURL(pdfUrl), 2000);
   };
 
+  // Metadata de las tarjetas (para grid + abrir modal)
+  const renderCard = (
+    titulo: string,
+    descripcion: string,
+    icono: string,
+    accent: string,
+    onClick: () => void,
+  ) => (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={`text-left bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:${accent} hover:shadow-md transition group disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="text-2xl leading-none mt-0.5">{icono}</div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-slate-900 text-sm leading-snug">
+            {titulo}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+            {descripcion}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Reportes</h1>
-      <div className="flex flex-col items-center gap-8 max-w-2xl mx-auto">
-        {/* Reporte de Stock total y por almacén */}
-        <div className="w-full bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold mb-4">
-            Stock total y por almacén
-          </h2>
-          <p className="text-gray-600 mb-4 text-sm">
-            Lista todos los productos con su stock total (cajas y unitario) y el
-            desglose por cada almacén.
-          </p>
-          <button
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 rounded-lg text-lg shadow transition disabled:opacity-50"
-            onClick={handleGenerarReporteStock}
-            disabled={loading}
-          >
-            GENERAR REPORTE DE STOCK
-          </button>
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Reportes</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Elegí un reporte para generarlo en PDF.
+        </p>
+      </div>
+
+      {error && (
+        <div className="text-red-700 bg-red-50 border border-red-200 p-3 rounded-md mb-4 text-sm">
+          {error}
         </div>
+      )}
 
-        {/* Reporte de Créditos Pendientes */}
-        <div className="w-full bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold mb-4">
-            Créditos Pendientes a Cobrar
-          </h2>
-          <button
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg text-lg shadow transition disabled:opacity-50"
-            onClick={handleGenerarPDF}
-            disabled={loading}
-          >
-            GENERAR REPORTE
-          </button>
-        </div>
-
-        {/* Reporte de Ventas por Cliente */}
-        <div className="w-full bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold mb-4">
-            Reporte de Ventas por Cliente
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cliente
-              </label>
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                value={clienteSeleccionado}
-                onChange={(e) => setClienteSeleccionado(e.target.value)}
-                disabled={loading}
-              >
-                <option value="TODOS">TODOS</option>
-                {clientes.map((cliente) => (
-                  <option key={cliente.ClienteId} value={cliente.ClienteId}>
-                    {cliente.ClienteNombre} {cliente.ClienteApellido}
-                    {cliente.ClienteRUC ? ` - ${cliente.ClienteRUC}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fecha Desde
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={fechaDesde}
-                  onChange={(e) => setFechaDesde(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fecha Hasta
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={fechaHasta}
-                  onChange={(e) => setFechaHasta(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg text-lg shadow transition disabled:opacity-50"
-              onClick={handleGenerarReporteVentas}
-              disabled={loading}
-            >
-              GENERAR REPORTE
-            </button>
+      <div className="space-y-8">
+        {/* === Sección Ventas y Stock === */}
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Ventas y stock
+            </h2>
+            <span className="text-xs text-slate-400">5 reportes</span>
           </div>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {renderCard(
+              "Stock valorizado",
+              "Productos con stock + capital inmovilizado a precio de costo. Desglose por almacén.",
+              "📦",
+              "border-teal-300",
+              () => {
+                setError(null);
+                handleGenerarReporteStock();
+              },
+            )}
+            {renderCard(
+              "Créditos pendientes",
+              "Lista de saldos a cobrar por cliente con totales por venta.",
+              "💳",
+              "border-green-300",
+              () => {
+                setError(null);
+                handleGenerarPDF();
+              },
+            )}
+            {renderCard(
+              "Ventas por cliente",
+              "Detalle de ventas por cliente (o todos), con pagos de crédito y totales por tipo.",
+              "🧾",
+              "border-blue-300",
+              () => {
+                setError(null);
+                setReporteActivo("ventas");
+              },
+            )}
+            {renderCard(
+              "Productos vendidos y comprados",
+              "Por período: cantidades, monto facturado, costo, ganancia y margen %.",
+              "🔁",
+              "border-blue-300",
+              () => {
+                setError(null);
+                setReporteActivo("movimientos");
+              },
+            )}
+            {renderCard(
+              "Productos más vendidos",
+              "Ranking de productos por cantidad vendida con precio venta, costo y stock actual.",
+              "🏆",
+              "border-indigo-300",
+              () => {
+                setError(null);
+                setReporteActivo("masvendidos");
+              },
+            )}
+          </div>
+        </section>
 
-        {/* Reporte de cierre de caja por rango de fechas */}
-        <div className="w-full bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold mb-4">
-            Reporte de cierre de caja por rango de fechas
-          </h2>
-          <p className="text-gray-600 mb-4 text-sm">
-            Obtenga la misma información del cierre diario para un período (ej.
-            julio a octubre 2025). Seleccione el rango y genere el reporte.
-          </p>
-          <div className="flex flex-wrap items-end gap-4 mb-6">
+        {/* === Sección Caja === */}
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Caja
+            </h2>
+            <span className="text-xs text-slate-400">1 reporte</span>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl leading-none">💼</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900 text-sm">
+                  Cierre de caja por rango
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Apertura, ingresos por método, egresos y diferencia de cada cierre del período.
+                </p>
+              </div>
+            </div>
+          <div className="flex flex-wrap items-end gap-3 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
                 Desde
               </label>
               <input
                 type="date"
                 value={fechaDesdeCierre}
                 onChange={(e) => setFechaDesdeCierre(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
                 Hasta
               </label>
               <input
                 type="date"
                 value={fechaHastaCierre}
                 onChange={(e) => setFechaHastaCierre(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
               />
             </div>
             <button
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 px-4 rounded-md shadow-sm transition disabled:opacity-50"
               onClick={generarReporteCierre}
               disabled={loading}
             >
-              {loading ? "Cargando…" : "Generar reporte"}
+              {loading ? "Cargando…" : "Generar"}
             </button>
             {resumenesCierre.length > 0 && (
               <button
-                className="bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 px-6 rounded-lg shadow transition"
+                className="bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold py-1.5 px-4 rounded-md shadow-sm transition"
                 onClick={exportarCierrePDF}
               >
-                Exportar a PDF
+                Exportar PDF
               </button>
             )}
           </div>
 
           {resumenesCierre.length > 0 && (
             <>
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-xs text-slate-500 mb-2">
                 {resumenesCierre.length} cierre(s) en el período. Página{" "}
                 {paginaCierre} de {totalPaginasCierre}.
               </p>
@@ -1141,17 +1654,177 @@ const ReportesPage: React.FC = () => {
               </div>
             </>
           )}
-        </div>
-
-        {loading && (
-          <div className="text-center text-gray-600">Generando PDF...</div>
-        )}
-        {error && (
-          <div className="text-red-600 bg-red-50 p-4 rounded-lg w-full">
-            {error}
           </div>
-        )}
+        </section>
       </div>
+
+      {/* Loading overlay durante generación */}
+      {loading && (
+        <div className="fixed top-4 right-4 bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-md shadow-lg z-50">
+          Generando reporte…
+        </div>
+      )}
+
+      {/* Modal de configuración de reportes */}
+      {reporteActivo && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4"
+          onClick={() => !loading && setReporteActivo(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {reporteActivo === "ventas" && "Ventas por cliente"}
+                {reporteActivo === "movimientos" && "Productos vendidos y comprados"}
+                {reporteActivo === "masvendidos" && "Productos más vendidos"}
+              </h3>
+              <button
+                onClick={() => setReporteActivo(null)}
+                className="text-slate-400 hover:text-slate-700 text-2xl leading-none p-0 w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100"
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            {reporteActivo === "ventas" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Cliente
+                  </label>
+                  <select
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                    value={clienteSeleccionado}
+                    onChange={(e) => setClienteSeleccionado(e.target.value)}
+                    disabled={loading}
+                  >
+                    <option value="TODOS">TODOS</option>
+                    {clientes.map((cliente) => (
+                      <option key={cliente.ClienteId} value={cliente.ClienteId}>
+                        {cliente.ClienteNombre} {cliente.ClienteApellido}
+                        {cliente.ClienteRUC ? ` - ${cliente.ClienteRUC}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Desde
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Hasta
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerarReporteVentas}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                >
+                  {loading ? "Generando…" : "Generar PDF"}
+                </button>
+              </div>
+            )}
+
+            {reporteActivo === "movimientos" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Desde
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaDesdeMov}
+                      onChange={(e) => setFechaDesdeMov(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Hasta
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaHastaMov}
+                      onChange={(e) => setFechaHastaMov(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerarReporteMovimientos}
+                  disabled={loading}
+                  className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                >
+                  {loading ? "Generando…" : "Generar PDF"}
+                </button>
+              </div>
+            )}
+
+            {reporteActivo === "masvendidos" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Desde
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaDesdeTop}
+                      onChange={(e) => setFechaDesdeTop(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Hasta
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaHastaTop}
+                      onChange={(e) => setFechaHastaTop(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerarReporteMasVendidos}
+                  disabled={loading}
+                  className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                >
+                  {loading ? "Generando…" : "Generar PDF"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

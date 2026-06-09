@@ -1,4 +1,5 @@
 const Factura = require("../models/factura.model");
+const { sendError } = require("../utils/errors");
 
 // getAllFacturas
 exports.getAllFacturas = async (req, res) => {
@@ -24,7 +25,8 @@ exports.getAllFacturas = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -34,7 +36,8 @@ exports.getAllFacturasSinPaginacion = async (req, res) => {
     const facturas = await Factura.getAll();
     res.json(facturas);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -69,7 +72,8 @@ exports.searchFacturas = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -82,7 +86,8 @@ exports.getFacturaById = async (req, res) => {
     }
     res.json(factura);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -148,6 +153,7 @@ exports.createFactura = async (req, res) => {
       data: nuevaFactura,
     });
   } catch (error) {
+    console.error(error);
     res.status(400).json({
       success: false,
       message: error.message,
@@ -219,6 +225,7 @@ exports.updateFactura = async (req, res) => {
       data: facturaActualizada,
     });
   } catch (error) {
+    console.error(error);
     res.status(400).json({
       success: false,
       message: error.message,
@@ -236,6 +243,7 @@ exports.deleteFactura = async (req, res) => {
       message: "Factura eliminada exitosamente",
     });
   } catch (error) {
+    console.error(error);
     res.status(400).json({
       success: false,
       message: error.message,
@@ -252,7 +260,8 @@ exports.getNextAvailableNumber = async (req, res) => {
       data: { nextNumber },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -272,6 +281,7 @@ exports.getCurrentFactura = async (req, res) => {
       data: factura,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };

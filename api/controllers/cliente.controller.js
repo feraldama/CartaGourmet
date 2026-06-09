@@ -1,4 +1,13 @@
 const Cliente = require("../models/cliente.model");
+const { sendError } = require("../utils/errors");
+
+function extractClienteFilters(query) {
+  const allowedTipos = ["MI", "MA"];
+  const filters = {};
+  if (query.tipo && allowedTipos.includes(query.tipo))
+    filters.tipo = query.tipo;
+  return filters;
+}
 
 // getAllClientes
 exports.getAllClientes = async (req, res) => {
@@ -8,12 +17,14 @@ exports.getAllClientes = async (req, res) => {
     const offset = (page - 1) * limit;
     const sortBy = req.query.sortBy || "ClienteId";
     const sortOrder = req.query.sortOrder || "ASC";
+    const filters = extractClienteFilters(req.query);
 
     const { clientes, total } = await Cliente.getAllPaginated(
       limit,
       offset,
       sortBy,
-      sortOrder
+      sortOrder,
+      filters,
     );
 
     res.json({
@@ -26,7 +37,8 @@ exports.getAllClientes = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -45,12 +57,15 @@ exports.searchClientes = async (req, res) => {
         .json({ error: "El término de búsqueda no puede estar vacío" });
     }
 
+    const filters = extractClienteFilters(req.query);
+
     const { clientes, total } = await Cliente.search(
       searchTerm,
       limit,
       offset,
       sortBy,
-      sortOrder
+      sortOrder,
+      filters,
     );
 
     res.json({
@@ -76,7 +91,8 @@ exports.getClienteById = async (req, res) => {
     }
     res.json(cliente);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -109,7 +125,6 @@ exports.createCliente = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al crear cliente",
-      error: error.message,
     });
   }
 };
@@ -141,7 +156,6 @@ exports.updateCliente = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al actualizar cliente",
-      error: error.message,
     });
   }
 };
@@ -161,6 +175,7 @@ exports.deleteCliente = async (req, res) => {
       message: "Cliente eliminado exitosamente",
     });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -175,7 +190,6 @@ exports.deleteCliente = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al eliminar cliente",
-      error: error.message,
     });
   }
 };
@@ -186,6 +200,7 @@ exports.getAllClientesSinPaginacion = async (req, res) => {
     const clientes = await Cliente.getAll();
     res.json({ data: clientes });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };

@@ -1,6 +1,32 @@
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 
+/**
+ * Construye la cláusula WHERE para filtros de usuarios.
+ * - estado (A/I) → UsuarioEstado
+ * - admin (S/N) → UsuarioIsAdmin
+ * - localId → LocalId
+ */
+function buildUsuarioFiltersWhere(filters = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (filters.estado) {
+    conditions.push("u.UsuarioEstado = ?");
+    params.push(filters.estado);
+  }
+  if (filters.admin) {
+    conditions.push("u.UsuarioIsAdmin = ?");
+    params.push(filters.admin);
+  }
+  if (filters.localId != null && filters.localId !== "") {
+    conditions.push("u.LocalId = ?");
+    params.push(Number(filters.localId));
+  }
+
+  return { conditions, params };
+}
+
 const Usuario = {
   getAll: () => {
     return new Promise((resolve, reject) => {
@@ -41,7 +67,13 @@ const Usuario = {
     });
   },
   // getAllPaginated
-  getAllPaginated: (limit, offset, sortBy = "UsuarioId", sortOrder = "ASC") => {
+  getAllPaginated: (
+    limit,
+    offset,
+    sortBy = "UsuarioId",
+    sortOrder = "ASC",
+    filters = {}
+  ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
         "UsuarioId",
@@ -60,34 +92,50 @@ const Usuario = {
       const order = allowedSortOrders.includes(sortOrder.toUpperCase())
         ? sortOrder.toUpperCase()
         : "ASC";
+
+      const { conditions, params: filterParams } =
+        buildUsuarioFiltersWhere(filters);
+      const whereSql = conditions.length
+        ? `WHERE ${conditions.join(" AND ")}`
+        : "";
 
       const query = `
         SELECT u.*, l.LocalNombre
         FROM usuario u
         LEFT JOIN local l ON u.LocalId = l.LocalId
+        ${whereSql}
         ORDER BY u.${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
-      db.query(query, [limit, offset], (err, results) => {
+      db.query(query, [...filterParams, limit, offset], (err, results) => {
         if (err) return reject(err);
 
-        db.query(
-          "SELECT COUNT(*) as total FROM usuario",
-          (err, countResult) => {
-            if (err) return reject(err);
+        const countQuery = `
+          SELECT COUNT(*) as total FROM usuario u
+          LEFT JOIN local l ON u.LocalId = l.LocalId
+          ${whereSql}`;
 
-            resolve({
-              usuarios: results || [],
-              total: countResult && countResult[0] ? countResult[0].total : 0,
-            });
-          }
-        );
+        db.query(countQuery, filterParams, (err, countResult) => {
+          if (err) return reject(err);
+
+          resolve({
+            usuarios: results || [],
+            total: countResult && countResult[0] ? countResult[0].total : 0,
+          });
+        });
       });
     });
   },
 
   // search
-  search: (term, limit, offset, sortBy = "UsuarioId", sortOrder = "ASC") => {
+  search: (
+    term,
+    limit,
+    offset,
+    sortBy = "UsuarioId",
+    sortOrder = "ASC",
+    filters = {}
+  ) => {
     return new Promise((resolve, reject) => {
       const allowedSortFields = [
         "UsuarioId",
@@ -107,37 +155,44 @@ const Usuario = {
         ? sortOrder.toUpperCase()
         : "ASC";
 
+      const { conditions: filterConditions, params: filterParams } =
+        buildUsuarioFiltersWhere(filters);
+      const filtersAndClause = filterConditions.length
+        ? ` AND ${filterConditions.join(" AND ")}`
+        : "";
+
       const searchQuery = `
         SELECT u.*, l.LocalNombre
         FROM usuario u
         LEFT JOIN local l ON u.LocalId = l.LocalId
-        WHERE CONCAT(u.UsuarioNombre, ' ', u.UsuarioApellido) LIKE ?
-        OR u.UsuarioCorreo LIKE ?
-        OR u.UsuarioId LIKE ?
-        OR l.LocalNombre LIKE ?
+        WHERE (CONCAT(u.UsuarioNombre, ' ', u.UsuarioApellido) LIKE ?
+          OR u.UsuarioCorreo LIKE ?
+          OR u.UsuarioId LIKE ?
+          OR l.LocalNombre LIKE ?)${filtersAndClause}
         ORDER BY u.${sortField} ${order}
         LIMIT ? OFFSET ?
       `;
       const searchValue = `%${term}%`;
+      const searchParams = [searchValue, searchValue, searchValue, searchValue];
 
       db.query(
         searchQuery,
-        [searchValue, searchValue, searchValue, searchValue, limit, offset],
+        [...searchParams, ...filterParams, limit, offset],
         (err, results) => {
           if (err) return reject(err);
 
           const countQuery = `
             SELECT COUNT(*) as total FROM usuario u
             LEFT JOIN local l ON u.LocalId = l.LocalId
-            WHERE CONCAT(u.UsuarioNombre, ' ', u.UsuarioApellido) LIKE ?
-            OR u.UsuarioCorreo LIKE ?
-            OR u.UsuarioId LIKE ?
-            OR l.LocalNombre LIKE ?
+            WHERE (CONCAT(u.UsuarioNombre, ' ', u.UsuarioApellido) LIKE ?
+              OR u.UsuarioCorreo LIKE ?
+              OR u.UsuarioId LIKE ?
+              OR l.LocalNombre LIKE ?)${filtersAndClause}
           `;
 
           db.query(
             countQuery,
-            [searchValue, searchValue, searchValue, searchValue],
+            [...searchParams, ...filterParams],
             (err, countResult) => {
               if (err) return reject(err);
 

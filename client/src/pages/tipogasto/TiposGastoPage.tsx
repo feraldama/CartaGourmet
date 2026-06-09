@@ -9,6 +9,11 @@ import {
 } from "../../services/tipogasto.service";
 import TiposGastoList from "../../components/tipogasto/TiposGastoList";
 import Pagination from "../../components/common/Pagination";
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 import Swal from "sweetalert2";
 
 interface TipoGasto {
@@ -189,10 +194,18 @@ export default function TiposGastoPage() {
     setCurrentPage(1);
   };
 
-  if (!puedeLeer)
-    return <div>No tienes permiso para ver los tipos de gasto.</div>;
-  if (loading) return <div>Cargando tipos de gasto...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los tipos de gasto" />;
+  if (loading) return <LoadingState message="Cargando tipos de gasto..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchTiposGasto();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">

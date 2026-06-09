@@ -73,7 +73,7 @@ const TipoGastoGrupo = {
     return new Promise((resolve, reject) => {
       // Primero verificar si hay registros dependientes
       db.query(
-        "SELECT COUNT(*) as count FROM cajagasto WHERE TipoGastoId = ? AND TipoGastoGrupoId = ?",
+        "SELECT COUNT(*) as count FROM registrodiariocaja WHERE TipoGastoId = ? AND TipoGastoGrupoId = ?",
         [data.TipoGastoId, id],
         (err, results) => {
           if (err) return reject(err);
@@ -112,7 +112,7 @@ const TipoGastoGrupo = {
           const tipoGastoIdFound = results[0]?.TipoGastoId;
           // Verificar si hay registros dependientes
           db.query(
-            "SELECT COUNT(*) as count FROM cajagasto WHERE TipoGastoId = ? AND TipoGastoGrupoId = ?",
+            "SELECT COUNT(*) as count FROM registrodiariocaja WHERE TipoGastoId = ? AND TipoGastoGrupoId = ?",
             [tipoGastoId, grupoId],
             (err, results) => {
               if (err) return reject(err);

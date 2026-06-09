@@ -26,14 +26,14 @@ const ROUTE_TITLES: Record<string, string> = {
   "/facturas": "Facturas",
 };
 
-const APP_NAME = "Salvatore";
+// const APP_NAME = "Salvatore";
 
 function DocumentTitle() {
   const { pathname } = useLocation();
 
   useEffect(() => {
     const pageTitle = ROUTE_TITLES[pathname] || "Página no encontrada";
-    document.title = `${APP_NAME} | ${pageTitle}`;
+    document.title = `${pageTitle}`;
   }, [pathname]);
 
   return null;

@@ -1,11 +1,13 @@
 const VentaCredito = require("../models/ventacredito.model");
+const { sendError } = require("../utils/errors");
 
 exports.getAll = async (req, res) => {
   try {
     const ventaCreditos = await VentaCredito.getAll();
     res.json(ventaCreditos);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -34,7 +36,8 @@ exports.getAllPaginated = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -48,7 +51,8 @@ exports.getById = async (req, res) => {
     }
     res.json(ventaCredito);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -62,7 +66,8 @@ exports.getByVentaId = async (req, res) => {
     }
     res.json(ventaCredito);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 500);
   }
 };
 
@@ -74,7 +79,8 @@ exports.create = async (req, res) => {
       data: ventaCredito,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -91,7 +97,8 @@ exports.update = async (req, res) => {
       data: ventaCredito,
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error(error);
+    sendError(res, error, 400);
   }
 };
 
@@ -105,6 +112,7 @@ exports.delete = async (req, res) => {
     }
     res.json({ message: "Crédito de venta eliminado exitosamente" });
   } catch (error) {
+    console.error(error);
     if (
       error &&
       error.message &&
@@ -115,7 +123,7 @@ exports.delete = async (req, res) => {
           "No se puede eliminar el crédito porque tiene pagos asociados.",
       });
     }
-    res.status(500).json({ message: error.message });
+    sendError(res, error, 500);
   }
 };
 
@@ -152,6 +160,7 @@ exports.searchVentaCreditos = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Error al buscar créditos de venta" });
   }
 };

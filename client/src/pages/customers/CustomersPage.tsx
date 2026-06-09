@@ -5,24 +5,18 @@ import {
   searchClientes,
   createCliente,
   updateCliente,
+  type ClienteFilters,
 } from "../../services/clientes.service";
 import CustomersList from "../../components/customers/CustomersList";
+import type { Cliente } from "../../components/common/ClienteFormModal";
 import Pagination from "../../components/common/Pagination";
 import Swal from "sweetalert2";
 import { usePermiso } from "../../hooks/usePermiso";
-
-interface Cliente {
-  id: string | number;
-  ClienteId: string;
-  ClienteRUC: string;
-  ClienteNombre: string;
-  ClienteApellido: string;
-  ClienteDireccion: string;
-  ClienteTelefono: string;
-  ClienteTipo: string;
-  UsuarioId: string;
-  [key: string]: unknown;
-}
+import {
+  LoadingState,
+  ErrorState,
+  PermissionDenied,
+} from "../../components/common/ui";
 
 interface Pagination {
   totalItems: number;
@@ -45,6 +39,8 @@ export default function CustomersPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState<string | undefined>();
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filters, setFilters] = useState<ClienteFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const puedeCrear = usePermiso("CLIENTES", "crear");
   const puedeEditar = usePermiso("CLIENTES", "editar");
@@ -61,10 +57,17 @@ export default function CustomersPage() {
           currentPage,
           itemsPerPage,
           sortKey,
-          sortOrder
+          sortOrder,
+          filters
         );
       } else {
-        data = await getClientes(currentPage, itemsPerPage, sortKey, sortOrder);
+        data = await getClientes(
+          currentPage,
+          itemsPerPage,
+          sortKey,
+          sortOrder,
+          filters
+        );
       }
       setClientesData({
         clientes: data.data,
@@ -79,7 +82,19 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearchTerm, itemsPerPage, sortKey, sortOrder]);
+  }, [
+    currentPage,
+    appliedSearchTerm,
+    itemsPerPage,
+    sortKey,
+    sortOrder,
+    filters,
+  ]);
+
+  const handleFiltersChange = (newFilters: ClienteFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     fetchClientes();
@@ -100,7 +115,9 @@ export default function CustomersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (cliente: Cliente) => {
+    if (cliente.ClienteId == null) return;
+    const id = String(cliente.ClienteId);
     Swal.fire({
       title: "¿Estás seguro?",
       text: "¡No podrás revertir esto!",
@@ -121,7 +138,7 @@ export default function CustomersPage() {
           setClientesData((prev) => ({
             ...prev,
             clientes: prev.clientes.filter(
-              (cliente) => cliente.ClienteId !== id
+              (c) => String(c.ClienteId) !== id
             ),
           }));
         } catch (error: unknown) {
@@ -157,8 +174,11 @@ export default function CustomersPage() {
           ? String(clienteData.UsuarioId).trim()
           : "",
       };
-      if (currentCliente) {
-        await updateCliente(currentCliente.ClienteId, clienteDataTrimmed);
+      if (currentCliente && currentCliente.ClienteId != null) {
+        await updateCliente(
+          String(currentCliente.ClienteId),
+          clienteDataTrimmed
+        );
         mensaje = "Cliente actualizado exitosamente";
       } else {
         const response = await createCliente(clienteDataTrimmed);
@@ -191,20 +211,25 @@ export default function CustomersPage() {
     setCurrentPage(1);
   };
 
-  if (loading) return <div>Cargando clientes...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!puedeLeer) return <div>No tienes permiso para ver los clientes</div>;
+  if (!puedeLeer) return <PermissionDenied resource="los clientes" />;
+  if (loading) return <LoadingState message="Cargando clientes..." />;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        onRetry={() => {
+          setError(null);
+          fetchClientes();
+        }}
+      />
+    );
 
   return (
     <div className="container mx-auto px-4">
       <h1 className="text-2xl font-medium mb-3">Gestión de Clientes</h1>
       <CustomersList
         clientes={clientesData.clientes.map((c) => ({ ...c, id: c.ClienteId }))}
-        onDelete={
-          puedeEliminar
-            ? (cliente) => handleDelete(cliente.ClienteId)
-            : undefined
-        }
+        onDelete={puedeEliminar ? handleDelete : undefined}
         onEdit={puedeEditar ? handleEdit : undefined}
         onCreate={puedeCrear ? handleCreate : undefined}
         pagination={clientesData.pagination}
@@ -227,6 +252,10 @@ export default function CustomersPage() {
           setSortOrder(order);
           setCurrentPage(1);
         }}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
       />
       <Pagination
         currentPage={currentPage}

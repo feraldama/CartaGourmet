@@ -1,4 +1,5 @@
 const UsuarioPerfil = require("../models/usuarioperfil.model");
+const { sendError } = require("../utils/errors");
 
 exports.getByUsuario = async (req, res) => {
   try {

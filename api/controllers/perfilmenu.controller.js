@@ -1,4 +1,5 @@
 const PerfilMenu = require("../models/perfilmenu.model");
+const { sendError } = require("../utils/errors");
 
 exports.getByPerfil = async (req, res) => {
   try {

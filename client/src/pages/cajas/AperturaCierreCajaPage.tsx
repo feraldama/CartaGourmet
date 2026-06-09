@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getCajas } from "../../services/cajas.service";
 import ActionButton from "../../components/common/Button/ActionButton";
+import { LoadingState, PermissionDenied } from "../../components/common/ui";
+import { usePermiso } from "../../hooks/usePermiso";
 import {
   aperturaCierreCaja,
   getEstadoAperturaPorUsuario,
@@ -9,15 +11,10 @@ import { useAuth } from "../../contexts/useAuth";
 import Swal from "sweetalert2";
 import { formatMiles } from "../../utils/utils";
 import { useNavigate, useLocation } from "react-router-dom";
-import jsPDF from "jspdf";
+import { loadPdf } from "../../utils/lazyPdf";
 import { getRegistrosDiariosCaja } from "../../services/registros.service";
 
-interface Caja {
-  id: string | number;
-  CajaId: string | number;
-  CajaDescripcion: string;
-  CajaMonto: number;
-}
+import type { Caja } from "../../types";
 
 interface RegistroDiarioCaja {
   RegistroDiarioCajaId: number;
@@ -259,6 +256,7 @@ export default function AperturaCierreCajaPage() {
       txtSobranteFaltante = `Sobrante/Faltante: Gs. 0`;
     }
     // --- Generar PDF ---
+    const { jsPDF } = await loadPdf();
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -377,7 +375,9 @@ export default function AperturaCierreCajaPage() {
     }
   };
 
-  if (loading) return <div>Cargando cajas...</div>;
+  const puedeLeer = usePermiso("APERTURACAJA", "leer");
+  if (!puedeLeer) return <PermissionDenied resource="la apertura/cierre de caja" />;
+  if (loading) return <LoadingState message="Cargando cajas..." />;
 
   return (
     <div className="container mx-auto px-4 max-w-xl">

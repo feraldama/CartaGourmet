@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/auth");
 
 router.use(authMiddleware);
 
+router.post("/recibir", authMiddleware, ventaCreditoPagoController.recibir);
 router.get("/search", authMiddleware, ventaCreditoPagoController.searchPagos);
 router.get("/", authMiddleware, ventaCreditoPagoController.getAll);
 router.get(

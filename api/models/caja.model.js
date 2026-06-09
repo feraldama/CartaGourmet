@@ -104,7 +104,7 @@ const Caja = {
 
       db.query(
         searchQuery,
-        [searchValue, searchValue, searchValue, limit, offset],
+        [searchValue, searchValue, limit, offset],
         (err, results) => {
           if (err) return reject(err);
 
@@ -115,7 +115,7 @@ const Caja = {
           `;
           db.query(
             countQuery,
-            [searchValue, searchValue, searchValue],
+            [searchValue, searchValue],
             (err, countResult) => {
               if (err) return reject(err);
               resolve({
