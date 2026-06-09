@@ -65,11 +65,11 @@ const Pagination = ({
   return (
     <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
       <div className="flex items-center order-2 sm:order-1">
-        <label className="mr-2 text-sm text-gray-600">Mostrar:</label>
+        <label className="mr-2 text-sm text-text-muted">Mostrar:</label>
         <select
           value={itemsPerPage}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+          className="cursor-pointer rounded-md border border-border bg-surface px-2 py-1 text-sm text-text transition-colors hover:border-border-strong focus:border-brand-700 focus:ring-2 focus:ring-brand-600/30"
         >
           <option value={10}>10</option>
           <option value={25}>25</option>
@@ -83,7 +83,7 @@ const Pagination = ({
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-3 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+            className="cursor-pointer whitespace-nowrap rounded-l-md border border-border bg-surface px-3 py-1 text-sm font-medium text-text transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             Anterior
           </button>
@@ -95,13 +95,13 @@ const Pagination = ({
                 if (typeof number === "number") onPageChange(number);
               }}
               disabled={number === "..."}
-              className={`px-3 py-1 border-t border-b border-gray-300 bg-white text-sm font-medium ${
+              className={`whitespace-nowrap border-b border-t border-border px-3 py-1 text-sm font-medium transition-colors ${
                 currentPage === number
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? "bg-brand-50 text-brand-700"
+                  : "bg-surface text-text hover:bg-surface-muted"
               } ${
                 number === "..." ? "cursor-default" : "cursor-pointer"
-              } whitespace-nowrap`}
+              }`}
             >
               {number}
             </button>
@@ -110,7 +110,7 @@ const Pagination = ({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+            className="cursor-pointer whitespace-nowrap rounded-r-md border border-border bg-surface px-3 py-1 text-sm font-medium text-text transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             Siguiente
           </button>

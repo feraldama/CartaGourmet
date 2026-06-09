@@ -224,13 +224,13 @@ const CreditoPagosPage = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text">
                 Cliente
               </label>
               <select
                 value={selectedCliente}
                 onChange={(e) => handleClienteChange(e.target.value)}
-                className="mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                className="mt-1 block w-full h-10 rounded-md border-border shadow-sm focus:border-green-500 focus:ring-green-500"
               >
                 <option value="">Seleccione un cliente</option>
                 {clientes.map((cliente) => (
@@ -242,25 +242,25 @@ const CreditoPagosPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text">
                 Fecha
               </label>
               <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                className="mt-1 block w-full h-10 rounded-md border-border shadow-sm focus:border-green-500 focus:ring-green-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text">
                 Tipo de Pago
               </label>
               <select
                 value={tipoPago}
                 onChange={(e) => setTipoPago(e.target.value)}
-                className="mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                className="mt-1 block w-full h-10 rounded-md border-border shadow-sm focus:border-green-500 focus:ring-green-500"
               >
                 {TIPOS_PAGO.map((tipo) => (
                   <option key={tipo.value} value={tipo.value}>
@@ -271,7 +271,7 @@ const CreditoPagosPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text">
                 Monto a Cobrar
               </label>
               <input
@@ -284,20 +284,20 @@ const CreditoPagosPage = () => {
                   const num = Number(raw);
                   if (!isNaN(num)) setMontoPago(num);
                 }}
-                className="mt-1 block w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                className="mt-1 block w-full h-10 rounded-md border-border shadow-sm focus:border-green-500 focus:ring-green-500"
                 placeholder="0"
               />
             </div>
 
             <div className="pt-4 border-t">
-              <p className="text-lg font-semibold text-gray-700">
+              <p className="text-lg font-semibold text-text">
                 Total Deuda: {formatCurrency(totalDeuda)}
               </p>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              className="w-full bg-success-700 text-white py-2 px-4 rounded-md hover:bg-success-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             >
               CARGAR PAGO
             </button>
@@ -307,21 +307,21 @@ const CreditoPagosPage = () => {
         {/* Tabla de ventas pendientes */}
         <div className="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-surface-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                   Venta Id
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                   Fecha
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
                   Total
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
                   Entrega
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
                   Saldo
                 </th>
               </tr>
@@ -329,19 +329,19 @@ const CreditoPagosPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {ventasPendientes.map((venta) => (
                 <tr key={venta.VentaId}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
                     {venta.VentaId}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
                     {new Date(venta.VentaFecha).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right">
                     {formatCurrency(venta.Total)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right">
                     {formatCurrency(venta.VentaEntrega)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right">
                     {formatCurrency(venta.Saldo)}
                   </td>
                 </tr>

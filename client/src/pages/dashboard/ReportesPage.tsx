@@ -1342,7 +1342,7 @@ const ReportesPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="text-red-700 bg-red-50 border border-red-200 p-3 rounded-md mb-4 text-sm">
+        <div className="text-danger-700 bg-red-50 border border-red-200 p-3 rounded-md mb-4 text-sm">
           {error}
         </div>
       )}
@@ -1439,7 +1439,7 @@ const ReportesPage: React.FC = () => {
                 type="date"
                 value={fechaDesdeCierre}
                 onChange={(e) => setFechaDesdeCierre(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-2 focus:ring-brand-600/30 focus:border-transparent"
                 disabled={loading}
               />
             </div>
@@ -1451,12 +1451,12 @@ const ReportesPage: React.FC = () => {
                 type="date"
                 value={fechaHastaCierre}
                 onChange={(e) => setFechaHastaCierre(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-2 focus:ring-brand-600/30 focus:border-transparent"
                 disabled={loading}
               />
             </div>
             <button
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 px-4 rounded-md shadow-sm transition disabled:opacity-50"
+              className="bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold py-1.5 px-4 rounded-md shadow-sm transition disabled:opacity-50"
               onClick={generarReporteCierre}
               disabled={loading}
             >
@@ -1740,7 +1740,7 @@ const ReportesPage: React.FC = () => {
                 <button
                   onClick={handleGenerarReporteVentas}
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                  className="w-full bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
                 >
                   {loading ? "Generando…" : "Generar PDF"}
                 </button>
@@ -1778,7 +1778,7 @@ const ReportesPage: React.FC = () => {
                 <button
                   onClick={handleGenerarReporteMovimientos}
                   disabled={loading}
-                  className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                  className="w-full bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
                 >
                   {loading ? "Generando…" : "Generar PDF"}
                 </button>

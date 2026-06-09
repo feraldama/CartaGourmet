@@ -37,7 +37,7 @@ const calcularIVA = (total: number) => {
 const formatearNumero = (numero: number) => {
   if (numero === undefined || numero === null || isNaN(numero)) return "0";
   const numeroRedondeado = Math.round(numero);
-  return numeroRedondeado.toLocaleString("es-PY");
+  return numeroRedondeado.toLocaleString("es-PY", { useGrouping: true });
 };
 
 const formatearFecha = (fecha: string) => {
@@ -139,7 +139,7 @@ const numeroALetras = (numero: number): string => {
     return resultado;
   }
 
-  return numero.toLocaleString("es-PY") + " GUARANÍES";
+  return numero.toLocaleString("es-PY", { useGrouping: true }) + " GUARANÍES";
 };
 
 // Genera el HTML de una hoja con 2 comprobantes idénticos (cliente + empresa),
@@ -285,12 +285,14 @@ const generarHoja = (
     </div>
   `;
 
-  // Separación entre los 2 comprobantes de la hoja.
-  const separacion = `
-    <div style="height: 0px; margin: -15px 0 0 0; padding: 0;"></div>
+  // La hoja es horizontal (landscape) con los 2 comprobantes idénticos uno al
+  // lado del otro (izquierda = cliente, derecha = empresa).
+  return `
+    <div class="hoja">
+      <div class="col">${comprobanteIndividual}</div>
+      <div class="col">${comprobanteIndividual}</div>
+    </div>
   `;
-
-  return comprobanteIndividual + separacion + comprobanteIndividual;
 };
 
 // HTML completo (con estilos) de la hoja de comprobante para una venta.
@@ -333,7 +335,8 @@ export const generarComprobanteHTML = (
         @media print {
           body { margin: 0; padding: 0; }
           .factura { page-break-after: avoid; }
-          @page { margin: 0; size: A4; }
+          .hoja { page-break-after: avoid; }
+          @page { margin: 0; size: A4 landscape; }
           body::before,
           body::after,
           *::before,
@@ -343,7 +346,17 @@ export const generarComprobanteHTML = (
         }
 
         body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0; }
-        .factura { margin: 0; padding: 32px 20px 20px 20px; }
+
+        /* Hoja horizontal: las 2 facturas (cliente + empresa) van una al lado de
+           la otra. Cada columna ocupa la mitad del ancho de la hoja apaisada y
+           recorta lo que sobre; la factura conserva su ancho/diseño original
+           (794px) y se escala para entrar en su mitad. */
+        .hoja { display: flex; flex-direction: row; align-items: flex-start; width: 100%; }
+        .col { box-sizing: border-box; width: 50%; flex: 0 0 50%; overflow: hidden; }
+        /* --offset-top empuja todo el contenido hacia abajo para que caiga
+           DEBAJO del membrete preimpreso (logo + FACTURA + número). Subí o bajá
+           ese único valor para alinear el texto con los recuadros del formulario. */
+        .factura { --offset-top: 250px; box-sizing: border-box; width: 794px; transform: scale(0.68); transform-origin: top left; margin: 0; padding: var(--offset-top) 20px 20px 20px; }
         .header { text-align: center; margin-bottom: 20px; }
         .header h2 { margin: 0; font-size: 18px; }
 

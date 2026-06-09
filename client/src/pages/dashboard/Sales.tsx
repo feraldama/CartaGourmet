@@ -772,8 +772,8 @@ export default function Sales() {
       return [
         p.nombre,
         p.cantidad,
-        `Gs. ${precioUnitario.toLocaleString("es-ES")}\n${precioLabel}`,
-        `Gs. ${totalLinea.toLocaleString("es-ES")}`,
+        `Gs. ${formatMiles(precioUnitario)}\n${precioLabel}`,
+        `Gs. ${formatMiles(totalLinea)}`,
       ];
     });
 
@@ -807,7 +807,7 @@ export default function Sales() {
       doc as unknown as { lastAutoTable: { finalY: number } }
     ).lastAutoTable;
     doc.text(
-      `Total a Pagar Gs. ${totalCost.toLocaleString("es-ES")}`,
+      `Total a Pagar Gs. ${formatMiles(totalCost)}`,
       0,
       lastAutoTable.finalY + 5,
     );
@@ -982,9 +982,9 @@ export default function Sales() {
                     key={p.cartItemId}
                     className={`${
                       p.cartItemId === selectedProductId
-                        ? "bg-gray-50 border-gray-300"
+                        ? "bg-surface-muted border-border"
                         : idx !== carrito.length - 1
-                          ? "border-b border-gray-200"
+                          ? "border-b border-border"
                           : ""
                     } transition-colors`}
                     onClick={() => {
@@ -1006,7 +1006,7 @@ export default function Sales() {
                             {p.nombre}
                           </div>
                           <div
-                            className="text-red-600 text-sm mt-1 cursor-pointer"
+                            className="text-danger-700 text-sm mt-1 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               quitarProducto(p.cartItemId);
@@ -1026,7 +1026,7 @@ export default function Sales() {
                               cambiarCantidad(p.cartItemId, p.cantidad - 1);
                               setSelectedProductId(p.cartItemId);
                             }}
-                            className="w-8 h-8 border border-gray-300 rounded bg-gray-50 text-gray-700 text-lg font-bold flex items-center justify-center hover:bg-gray-100"
+                            className="w-8 h-8 border border-border rounded bg-surface-muted text-text text-lg font-bold flex items-center justify-center hover:bg-surface-muted"
                           >
                             -
                           </button>
@@ -1034,7 +1034,7 @@ export default function Sales() {
                             type="number"
                             value={p.cantidad}
                             min={0}
-                            className="w-10 h-8 text-center border border-gray-300 rounded bg-gray-50 text-base font-semibold text-[#222] mx-1"
+                            className="w-10 h-8 text-center border border-border rounded bg-surface-muted text-base font-semibold text-[#222] mx-1"
                             readOnly
                             ref={(el) => {
                               cantidadRefs.current[p.cartItemId] = el || null;
@@ -1067,7 +1067,7 @@ export default function Sales() {
                               cambiarCantidad(p.cartItemId, p.cantidad + 1);
                               setSelectedProductId(p.cartItemId);
                             }}
-                            className="w-8 h-8 border border-gray-300 rounded bg-gray-50 text-gray-700 text-lg font-bold flex items-center justify-center hover:bg-gray-100"
+                            className="w-8 h-8 border border-border rounded bg-surface-muted text-text text-lg font-bold flex items-center justify-center hover:bg-surface-muted"
                           >
                             +
                           </button>
@@ -1090,17 +1090,17 @@ export default function Sales() {
                           />
                           <label
                             htmlFor={`caja-checkbox-${p.cartItemId}`}
-                            className="text-lg text-gray-700 cursor-pointer select-none font-medium"
+                            className="text-lg text-text cursor-pointer select-none font-medium"
                           >
                             Caja
                           </label>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 align-middle text-right font-medium text-[17px] text-gray-700">
+                    <td className="py-3 align-middle text-right font-medium text-[17px] text-text">
                       <>Gs. {formatMiles(obtenerPrecio(p))}</>
                     </td>
-                    <td className="py-3 pr-6 align-middle text-right font-medium text-[17px] text-gray-700">
+                    <td className="py-3 pr-6 align-middle text-right font-medium text-[17px] text-text">
                       Gs. {formatMiles(obtenerTotal(p))}
                     </td>
                   </tr>
@@ -1118,11 +1118,11 @@ export default function Sales() {
               id="devolucion-checkbox"
               checked={isDevolucion}
               onChange={(e) => setIsDevolucion(e.target.checked)}
-              className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 focus:ring-2 cursor-pointer"
+              className="w-4 h-4 text-danger-700 bg-surface-muted border-border rounded focus:ring-red-500 focus:ring-2 cursor-pointer"
             />
             <label
               htmlFor="devolucion-checkbox"
-              className="ml-2 text-sm font-medium text-red-700 cursor-pointer select-none"
+              className="ml-2 text-sm font-medium text-danger-700 cursor-pointer select-none"
             >
               {isDevolucion ? "🔴 MODO DEVOLUCIÓN" : "⚪ MODO VENTA"}
             </label>
@@ -1132,7 +1132,7 @@ export default function Sales() {
             <span className="font-bold text-lg">Total</span>
             <span
               className={`font-semibold text-lg ${
-                isDevolucion ? "text-red-500" : "text-blue-500"
+                isDevolucion ? "text-danger-700" : "text-brand-700"
               }`}
             >
               Gs. {formatMiles(total)}
@@ -1144,8 +1144,8 @@ export default function Sales() {
             <button
               className={`text-white font-semibold rounded-lg flex items-center justify-center text-lg h-[100px] border-2 transition cursor-pointer ${
                 isDevolucion
-                  ? "bg-red-500 border-red-500 hover:bg-red-600"
-                  : "bg-blue-500 border-blue-500 hover:bg-blue-600"
+                  ? "bg-danger-700 border-danger-500 hover:bg-danger-800"
+                  : "bg-brand-700 border-brand-700 hover:bg-brand-800"
               }`}
               onClick={() => setShowModal(true)}
             >
@@ -1153,14 +1153,14 @@ export default function Sales() {
             </button>
             {/* Botón Presupuesto */}
             <button
-              className="bg-white border border-gray-200 rounded-lg text-gray-700 font-medium text-lg h-[100px] flex items-center justify-center hover:bg-gray-100 transition"
+              className="bg-white border border-border rounded-lg text-text font-medium text-lg h-[100px] flex items-center justify-center hover:bg-surface-muted transition"
               onClick={handlePresupuestoPDF}
             >
               Presupuesto
             </button>
             {/* Botón Imprimir Factura */}
             <button
-              className="bg-green-500 border border-green-500 rounded-lg text-white font-medium text-lg h-[100px] flex items-center justify-center hover:bg-green-600 transition"
+              className="bg-success-700 border border-green-500 rounded-lg text-white font-medium text-lg h-[100px] flex items-center justify-center hover:bg-success-800 transition"
               onClick={() => setShowInvoicePrintModal(true)}
             >
               Imprimir Factura
@@ -1169,7 +1169,7 @@ export default function Sales() {
           {/* Recuadro inferior para el nombre del cliente */}
           <div className="mt-2">
             <button
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 text-center text-gray-700 font-semibold text-base tracking-wide hover:bg-blue-100 transition cursor-pointer"
+              className="w-full bg-surface-muted border border-border rounded-lg py-2 text-center text-text font-semibold text-base tracking-wide hover:bg-brand-100 transition cursor-pointer"
               onClick={() => setShowClienteModal(true)}
             >
               {clienteSeleccionado
@@ -1209,7 +1209,7 @@ export default function Sales() {
               inputRef={searchInputRef}
             />
             {isDevolucion && (
-              <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-1 rounded-full text-sm font-medium">
+              <div className="bg-red-100 border border-red-300 text-danger-700 px-3 py-1 rounded-full text-sm font-medium">
                 🔴 MODO DEVOLUCIÓN
               </div>
             )}
@@ -1223,24 +1223,24 @@ export default function Sales() {
                 </span>
               </span>
               {localNombre && (
-                <span className="text-red-600 font-medium">
+                <span className="text-danger-700 font-medium">
                   | Local: {localNombre}
                 </span>
               )}
               {cajaAperturada && (
-                <span className="text-blue-600 font-medium">
+                <span className="text-brand-700 font-medium">
                   | Caja: {cajaAperturada.CajaDescripcion}
                 </span>
               )}
               <ActionButton
                 label="Apertura/Cierre"
                 onClick={() => navigate("/apertura-cierre-caja")}
-                className="bg-blue-500 hover:bg-blue-700 text-white"
+                className="bg-brand-700 hover:bg-brand-800 text-white"
               />
               <ActionButton
                 label="Pagos"
                 onClick={() => setShowPagoModal(true)}
-                className="bg-green-500 hover:bg-green-700 text-white"
+                className="bg-success-700 hover:bg-success-800 text-white"
               />
             </div>
           )}
@@ -1258,11 +1258,11 @@ export default function Sales() {
               }}
             >
               {loading ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   Cargando productos...
                 </div>
               ) : productos.length === 0 ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   No se encontraron productos
                 </div>
               ) : (

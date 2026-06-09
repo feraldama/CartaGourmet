@@ -23,12 +23,12 @@ export default function ActionButton({
     <button
       onClick={onClick}
       type={type}
-      className={`flex items-center gap-2 px-4 py-2 bg-blue-500 rounded-lg whitespace-nowrap ${
+      className={`flex items-center gap-2 px-4 py-2 bg-brand-700 rounded-lg whitespace-nowrap transition-colors ${
         className ? className : "text-white"
       } ${
         disabled
           ? "opacity-50 cursor-not-allowed"
-          : "hover:bg-blue-800 cursor-pointer"
+          : "hover:bg-brand-800 cursor-pointer"
       }`}
       disabled={disabled}
     >

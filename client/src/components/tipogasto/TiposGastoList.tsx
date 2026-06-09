@@ -156,7 +156,7 @@ export default function TiposGastoList({
         </div>
       </div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-text-muted">
           Mostrando {formatMiles(tiposGasto.length)} de{" "}
           {formatMiles(pagination?.totalItems || 0)} tipos de gasto
         </div>
@@ -183,14 +183,14 @@ export default function TiposGastoList({
               className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-text">
                   {currentTipoGasto
                     ? `Editar tipo de gasto: ${currentTipoGasto.TipoGastoDescripcion}`
                     : "Crear nuevo tipo de gasto"}
                 </h3>
                 <button
                   type="button"
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
+                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
                   onClick={onCloseModal}
                 >
                   <svg
@@ -215,7 +215,7 @@ export default function TiposGastoList({
                   <div className="col-span-6 sm:col-span-4">
                     <label
                       htmlFor="TipoGastoDescripcion"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Descripción
                     </label>
@@ -225,7 +225,7 @@ export default function TiposGastoList({
                       id="TipoGastoDescripcion"
                       value={formData.TipoGastoDescripcion}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       required
                     />
                   </div>
@@ -233,11 +233,11 @@ export default function TiposGastoList({
                 {/* Detalle de grupos de gasto asociados */}
                 {currentTipoGasto && (
                   <div className="mt-6">
-                    <h4 className="font-semibold mb-2 text-gray-800 text-base">
+                    <h4 className="font-semibold mb-2 text-text-strong text-base">
                       Grupos asociados a este tipo de gasto
                     </h4>
                     {loadingGrupos ? (
-                      <div className="text-gray-500 text-sm">
+                      <div className="text-text-muted text-sm">
                         Cargando grupos...
                       </div>
                     ) : (
@@ -246,7 +246,7 @@ export default function TiposGastoList({
                           {grupos.map((g) => (
                             <li
                               key={g.TipoGastoGrupoId}
-                              className="py-2 px-1 flex items-center gap-2 hover:bg-gray-100 rounded"
+                              className="py-2 px-1 flex items-center gap-2 hover:bg-surface-muted rounded"
                             >
                               {editGrupoId === g.TipoGastoGrupoId ? (
                                 <>
@@ -259,7 +259,7 @@ export default function TiposGastoList({
                                   />
                                   <button
                                     type="button"
-                                    className="text-green-600 hover:underline text-xs cursor-pointer"
+                                    className="text-success-700 hover:underline text-xs cursor-pointer"
                                     onClick={async () => {
                                       try {
                                         await updateTipoGastoGrupo(
@@ -299,7 +299,7 @@ export default function TiposGastoList({
                                   </button>
                                   <button
                                     type="button"
-                                    className="text-gray-500 hover:underline text-xs ml-2 cursor-pointer"
+                                    className="text-text-muted hover:underline text-xs ml-2 cursor-pointer"
                                     onClick={() => {
                                       setEditGrupoId(null);
                                       setEditGrupoDesc("");
@@ -310,13 +310,13 @@ export default function TiposGastoList({
                                 </>
                               ) : (
                                 <>
-                                  <span className="text-gray-700 flex-1">
+                                  <span className="text-text flex-1">
                                     {g.TipoGastoGrupoId}-{" "}
                                     {g.TipoGastoGrupoDescripcion}
                                   </span>
                                   <button
                                     type="button"
-                                    className="text-blue-600 hover:underline text-xs cursor-pointer"
+                                    className="text-brand-700 hover:underline text-xs cursor-pointer"
                                     title="Editar"
                                     onClick={() => {
                                       setEditGrupoId(g.TipoGastoGrupoId);
@@ -329,7 +329,7 @@ export default function TiposGastoList({
                                   </button>
                                   <button
                                     type="button"
-                                    className="text-red-600 hover:underline text-xs ml-2 cursor-pointer"
+                                    className="text-danger-700 hover:underline text-xs ml-2 cursor-pointer"
                                     title="Eliminar"
                                     onClick={async () => {
                                       const confirm = await Swal.fire({
@@ -411,7 +411,7 @@ export default function TiposGastoList({
                           />
                           <button
                             type="button"
-                            className="text-white bg-blue-600 hover:bg-blue-700 rounded px-3 py-1 text-xs"
+                            className="text-white bg-brand-700 hover:bg-brand-800 rounded px-3 py-1 text-xs"
                             onClick={async () => {
                               if (!nuevoGrupo.trim()) return;
                               const res = await createTipoGastoGrupo({
@@ -451,7 +451,7 @@ export default function TiposGastoList({
                           </button>
                         </div>
                         {grupos.length === 0 && !loadingGrupos && (
-                          <div className="text-gray-500 text-sm mt-2">
+                          <div className="text-text-muted text-sm mt-2">
                             No hay grupos asociados.
                           </div>
                         )}
@@ -460,14 +460,14 @@ export default function TiposGastoList({
                   </div>
                 )}
               </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b">
+              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
                 <ActionButton
                   label={currentTipoGasto ? "Actualizar" : "Crear"}
                   type="submit"
                 />
                 <ActionButton
                   label="Cancelar"
-                  className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 cursor-pointer"
+                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10 cursor-pointer"
                   onClick={onCloseModal}
                 />
               </div>

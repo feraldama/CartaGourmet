@@ -185,7 +185,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
     }
     // Redondear al entero más cercano
     const numeroRedondeado = Math.round(numero);
-    return numeroRedondeado.toLocaleString("es-PY");
+    return numeroRedondeado.toLocaleString("es-PY", { useGrouping: true });
   };
 
   const formatearFecha = (fecha: string) => {
@@ -227,14 +227,14 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
       <div className="absolute inset-0 bg-black opacity-50" />
       <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl p-6 relative max-h-[90vh] overflow-y-auto">
         <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl cursor-pointer"
+          className="absolute top-4 right-4 text-text-subtle hover:text-text-muted text-2xl cursor-pointer"
           onClick={onClose}
         >
           &times;
         </button>
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-gray-800">
+          <h2 className="text-2xl font-semibold text-text-strong">
             Imprimir Factura
           </h2>
         </div>
@@ -250,11 +250,11 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-brand-600/30"
                 />
                 <button
                   onClick={handleSearch}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                  className="px-4 py-2 bg-brand-700 text-white rounded-lg hover:bg-brand-800 transition"
                 >
                   Buscar
                 </button>
@@ -263,11 +263,11 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {loading ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-text-muted">
                   Cargando ventas...
                 </div>
               ) : ventas.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-text-muted">
                   No se encontraron ventas
                 </div>
               ) : (
@@ -276,26 +276,26 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                     key={venta.VentaId}
                     className={`p-3 border rounded-lg cursor-pointer transition ${
                       ventaSeleccionada?.VentaId === venta.VentaId
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-brand-700 bg-brand-50"
+                        : "border-border hover:border-border"
                     }`}
                     onClick={() => cargarProductosVenta(venta)}
                   >
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-semibold">Venta #{venta.VentaId}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-text-muted">
                           {formatearFecha(venta.VentaFecha)}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-text-muted">
                           Cliente: {venta.ClienteRazonSocial || "N/A"}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-green-600">
+                        <p className="font-semibold text-success-700">
                           {formatearNumero(venta.Total || 0)}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-text-muted">
                           {venta.VentaCantidadProductos || 0} productos
                         </p>
                       </div>
@@ -311,11 +311,11 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 border border-border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface-muted"
                 >
                   Anterior
                 </button>
-                <span className="px-3 py-1 text-sm text-gray-600">
+                <span className="px-3 py-1 text-sm text-text-muted">
                   Página {currentPage} de {totalPages}
                 </span>
                 <button
@@ -323,7 +323,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                     setCurrentPage(Math.min(totalPages, currentPage + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 border border-border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface-muted"
                 >
                   Siguiente
                 </button>
@@ -335,7 +335,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
           <div>
             <h3 className="text-lg font-semibold mb-4">Vista Previa</h3>
             {ventaSeleccionada ? (
-              <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="border rounded-lg p-4 bg-surface-muted">
                 <div className="space-y-2">
                   <p>
                     <strong>N° Factura:</strong>{" "}
@@ -380,7 +380,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                             (producto, index) => (
                               <div
                                 key={index}
-                                className="text-sm text-gray-600"
+                                className="text-sm text-text-muted"
                               >
                                 {producto.VentaProductoCantidad}x{" "}
                                 {producto.ProductoNombre ||
@@ -389,7 +389,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                             )
                           )}
                           {ventaSeleccionada.VentaProductos.length > 5 && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-text-muted">
                               ... y{" "}
                               {ventaSeleccionada.VentaProductos.length - 5}{" "}
                               productos más
@@ -401,7 +401,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="border rounded-lg p-4 bg-gray-50 text-center text-gray-500">
+              <div className="border rounded-lg p-4 bg-surface-muted text-center text-text-muted">
                 Seleccione una venta para ver la vista previa
               </div>
             )}
@@ -411,7 +411,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
         {/* Botones de acción */}
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
           <button
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            className="px-4 py-2 text-text-muted border border-border rounded-lg hover:bg-surface-muted transition"
             onClick={onClose}
           >
             Cancelar
@@ -419,8 +419,8 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
           <button
             className={`px-6 py-2 rounded-lg transition ${
               ventaSeleccionada
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                ? "bg-brand-700 text-white hover:bg-brand-800"
+                : "bg-gray-300 text-text-muted cursor-not-allowed"
             }`}
             onClick={imprimirFactura}
             disabled={!ventaSeleccionada}

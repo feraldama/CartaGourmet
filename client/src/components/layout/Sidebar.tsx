@@ -23,6 +23,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Link, useLocation } from "react-router-dom";
 import type { Dispatch, SetStateAction } from "react";
+import logo from "../../assets/img/logo.png";
 
 interface NavigationChild {
   name: string;
@@ -137,8 +138,8 @@ function NavItem({ item, level = 0, onNavigate }: NavItemProps) {
         {({ open }) => (
           <>
             <DisclosureButton
-              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md ${
-                isActive ? "bg-gray-700 text-white" : ""
+              className={`flex items-center w-full px-4 py-2 text-sm font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active rounded-md transition-colors ${
+                isActive ? "bg-sidebar-active text-sidebar-text-active" : ""
               }`}
               style={{ paddingLeft: `${level * 12 + 12}px` }}
             >
@@ -194,7 +195,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
       {/* Mobile sidebar */}
       <div className="lg:hidden">
         <div
-          className={`fixed inset-0 z-40 bg-gray-600 bg-opacity-75 transition-opacity ${
+          className={`fixed inset-0 z-40 bg-black/60 transition-opacity ${
             mobileOpen ? "block" : "hidden"
           }`}
           onClick={() => setMobileOpen(false)}
@@ -205,12 +206,23 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           } transition-transform lg:relative lg:translate-x-0`}
         >
-          <div className="flex h-full flex-col bg-gray-800">
-            <div className="flex h-16 shrink-0 items-center justify-between px-4 bg-gray-900">
-              <span className="text-white font-bold">CARTA</span>
+          <div className="flex h-full flex-col bg-sidebar">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white p-1">
+                  <img
+                    src={logo}
+                    alt="Carta Gourmet"
+                    className="h-full w-full object-contain"
+                  />
+                </span>
+                <span className="font-display font-bold text-text-inverse">
+                  Carta Gourmet
+                </span>
+              </div>
               <button
                 type="button"
-                className="rounded-md text-gray-300 hover:text-white focus:outline-none"
+                className="cursor-pointer rounded-md text-sidebar-text transition-colors hover:text-sidebar-text-active focus:outline-none"
                 onClick={() => setMobileOpen(false)}
               >
                 <XMarkIcon className="h-6 w-6" />

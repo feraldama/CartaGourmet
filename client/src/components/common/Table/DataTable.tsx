@@ -3,6 +3,8 @@ import {
   PencilSquareIcon,
   TrashIcon,
   CreditCardIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 // import React from "react";
 
@@ -70,9 +72,9 @@ function DataTable<T extends DataTableRow>({
       : data;
 
   return (
-    <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
-      <table className="w-full text-sm text-left text-gray-500">
-        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+    <div className="relative overflow-x-auto rounded-lg border border-border shadow-card">
+      <table className="w-full text-left text-sm text-text-muted">
+        <thead className="bg-surface-muted text-xs font-medium uppercase text-text-muted">
           <tr>
             {columns.map((column) => {
               const activeKey = onSort ? sortKey : localSortKey;
@@ -81,7 +83,14 @@ function DataTable<T extends DataTableRow>({
                 <th
                   key={column.key}
                   scope="col"
-                  className="px-6 py-3 cursor-pointer select-none"
+                  aria-sort={
+                    activeKey === column.key
+                      ? activeOrder === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className="cursor-pointer select-none px-6 py-3 transition-colors hover:text-text"
                   onClick={() => {
                     if (onSort) {
                       if (sortKey === column.key) {
@@ -104,9 +113,15 @@ function DataTable<T extends DataTableRow>({
                     }
                   }}
                 >
-                  {column.label}
-                  {activeKey === column.key &&
-                    (activeOrder === "asc" ? " ▲" : " ▼")}
+                  <span className="inline-flex items-center gap-1">
+                    {column.label}
+                    {activeKey === column.key &&
+                      (activeOrder === "asc" ? (
+                        <ChevronUpIcon className="h-3.5 w-3.5 text-brand-700" />
+                      ) : (
+                        <ChevronDownIcon className="h-3.5 w-3.5 text-brand-700" />
+                      ))}
+                  </span>
                 </th>
               );
             })}
@@ -119,7 +134,10 @@ function DataTable<T extends DataTableRow>({
         </thead>
         <tbody>
           {sortedData.map((item) => (
-            <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
+            <tr
+              key={item.id}
+              className="border-b border-border bg-surface transition-colors hover:bg-surface-muted"
+            >
               {columns.map((column) => (
                 <td key={column.key} className="px-6 py-4">
                   {column.render ? (
@@ -128,7 +146,8 @@ function DataTable<T extends DataTableRow>({
                     <div className="flex items-center">
                       <div
                         className={`h-2.5 w-2.5 rounded-full ${
-                          getStatusColor?.(item[column.key]) || "bg-gray-500"
+                          getStatusColor?.(item[column.key]) ||
+                          "bg-text-subtle"
                         } mr-2`}
                       ></div>
                       {getStatusText?.(item[column.key]) ||
@@ -148,8 +167,9 @@ function DataTable<T extends DataTableRow>({
                       {onEdit && (
                         <button
                           onClick={() => onEdit(item)}
-                          className="font-medium text-blue-600 hover:underline cursor-pointer"
+                          className="cursor-pointer font-medium text-brand-700 hover:underline"
                           title="Editar"
+                          aria-label="Editar"
                         >
                           <PencilSquareIcon className="h-5 w-5 inline" />
                         </button>
@@ -157,8 +177,9 @@ function DataTable<T extends DataTableRow>({
                       {onViewCredit && item.VentaTipo === "CR" && (
                         <button
                           onClick={() => onViewCredit(item)}
-                          className="font-medium text-green-600 hover:underline cursor-pointer"
+                          className="cursor-pointer font-medium text-success-700 hover:underline"
                           title="Ver Detalles de Crédito"
+                          aria-label="Ver Detalles de Crédito"
                         >
                           <CreditCardIcon className="h-5 w-5 inline" />
                         </button>
@@ -166,8 +187,9 @@ function DataTable<T extends DataTableRow>({
                       {onDelete && (
                         <button
                           onClick={() => onDelete(item)}
-                          className="font-medium text-red-600 hover:underline cursor-pointer"
+                          className="cursor-pointer font-medium text-danger-700 hover:underline"
                           title="Eliminar"
+                          aria-label="Eliminar"
                         >
                           <TrashIcon className="h-5 w-5 inline" />
                         </button>
@@ -183,7 +205,7 @@ function DataTable<T extends DataTableRow>({
 
       {/* Mensaje cuando no hay resultados */}
       {data.length === 0 && (
-        <div className="p-4 text-center text-gray-500">{emptyMessage}</div>
+        <div className="p-4 text-center text-text-muted">{emptyMessage}</div>
       )}
     </div>
   );

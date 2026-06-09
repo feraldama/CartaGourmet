@@ -193,7 +193,7 @@ export default function UsuariosList({
 
   // Determinar el color del estado
   const getEstadoColor = (estado: unknown) => {
-    return (estado as string) === "A" ? "bg-green-500" : "bg-red-500";
+    return (estado as string) === "A" ? "bg-success-700" : "bg-danger-700";
   };
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -262,12 +262,12 @@ export default function UsuariosList({
             <button
               type="button"
               onClick={onToggleFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text bg-white border border-border rounded-md hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-2 focus:ring-brand-600/30 cursor-pointer"
             >
               <FunnelIcon className="w-4 h-4" />
               Filtros
               {activeFilterCount > 0 && (
-                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-semibold text-white bg-brand-700 rounded-full">
                   {activeFilterCount}
                 </span>
               )}
@@ -283,10 +283,10 @@ export default function UsuariosList({
         </div>
       </div>
       {onFiltersChange && showFilters && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+        <div className="bg-surface-muted border border-border rounded-lg p-4 mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block mb-1 text-xs font-medium text-gray-700">
+              <label className="block mb-1 text-xs font-medium text-text">
                 Estado
               </label>
               <select
@@ -297,7 +297,7 @@ export default function UsuariosList({
                     (e.target.value as UsuarioFilters["estado"]) || ""
                   )
                 }
-                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+                className="w-full bg-white border border-border text-text text-sm rounded-md focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 p-2"
               >
                 <option value="">Todos</option>
                 <option value="A">Activo</option>
@@ -305,7 +305,7 @@ export default function UsuariosList({
               </select>
             </div>
             <div>
-              <label className="block mb-1 text-xs font-medium text-gray-700">
+              <label className="block mb-1 text-xs font-medium text-text">
                 Administrador
               </label>
               <select
@@ -316,7 +316,7 @@ export default function UsuariosList({
                     (e.target.value as UsuarioFilters["admin"]) || ""
                   )
                 }
-                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+                className="w-full bg-white border border-border text-text text-sm rounded-md focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 p-2"
               >
                 <option value="">Todos</option>
                 <option value="S">Sí</option>
@@ -324,7 +324,7 @@ export default function UsuariosList({
               </select>
             </div>
             <div>
-              <label className="block mb-1 text-xs font-medium text-gray-700">
+              <label className="block mb-1 text-xs font-medium text-text">
                 Local
               </label>
               <select
@@ -332,7 +332,7 @@ export default function UsuariosList({
                 onChange={(e) =>
                   updateFilter("localId", e.target.value || "")
                 }
-                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2"
+                className="w-full bg-white border border-border text-text text-sm rounded-md focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 p-2"
               >
                 <option value="">Todos</option>
                 {filterLocales.map((l) => (
@@ -348,7 +348,7 @@ export default function UsuariosList({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-text-muted hover:text-text cursor-pointer"
               >
                 <XMarkIcon className="w-4 h-4" />
                 Limpiar filtros
@@ -359,7 +359,7 @@ export default function UsuariosList({
       )}
 
       <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-text-muted">
           Mostrando {formatMiles(usuarios.length)} de{" "}
           {formatMiles(pagination?.totalItems || 0)} usuarios
         </div>
@@ -394,14 +394,14 @@ export default function UsuariosList({
               className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-text">
                   {currentUser
                     ? `Editar usuario: ${currentUser.UsuarioId}`
                     : "Crear nuevo usuario"}
                 </h3>
                 <button
                   type="button"
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
+                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
                   onClick={onCloseModal}
                 >
                   <svg
@@ -428,7 +428,7 @@ export default function UsuariosList({
                     <div className="col-span-6 sm:col-span-3">
                       <label
                         htmlFor="UsuarioId"
-                        className="block mb-2 text-sm font-medium text-gray-900"
+                        className="block mb-2 text-sm font-medium text-text"
                       >
                         ID de Usuario
                       </label>
@@ -438,7 +438,7 @@ export default function UsuariosList({
                         id="UsuarioId"
                         value={formData.UsuarioId}
                         onChange={handleInputChange}
-                        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                        className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                         required
                       />
                     </div>
@@ -446,7 +446,7 @@ export default function UsuariosList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="UsuarioNombre"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Nombre
                     </label>
@@ -464,14 +464,14 @@ export default function UsuariosList({
                           },
                         } as React.ChangeEvent<HTMLInputElement>);
                       }}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       required
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="UsuarioApellido"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Apellido
                     </label>
@@ -489,13 +489,13 @@ export default function UsuariosList({
                           },
                         } as React.ChangeEvent<HTMLInputElement>);
                       }}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="UsuarioCorreo"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Email
                     </label>
@@ -505,13 +505,13 @@ export default function UsuariosList({
                       id="UsuarioCorreo"
                       value={formData.UsuarioCorreo}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="LocalId"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Local
                     </label>
@@ -520,7 +520,7 @@ export default function UsuariosList({
                       id="LocalId"
                       value={formData.LocalId}
                       onChange={handleInputChange}
-                      className="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5"
+                      className="shadow-sm bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       required
                     >
                       <option value="">Seleccione un local</option>
@@ -535,7 +535,7 @@ export default function UsuariosList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="UsuarioIsAdmin"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       ¿Es administrador?
                     </label>
@@ -544,7 +544,7 @@ export default function UsuariosList({
                       id="UsuarioIsAdmin"
                       value={formData.UsuarioIsAdmin}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     >
                       <option value="N">No</option>
                       <option value="S">Sí</option>
@@ -554,7 +554,7 @@ export default function UsuariosList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="UsuarioEstado"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Estado
                     </label>
@@ -563,7 +563,7 @@ export default function UsuariosList({
                       id="UsuarioEstado"
                       value={formData.UsuarioEstado}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     >
                       <option value="A">Activo</option>
                       <option value="I">Inactivo</option>
@@ -574,7 +574,7 @@ export default function UsuariosList({
                       <button
                         type="button"
                         onClick={() => setEditingPassword(true)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        className="text-brand-700 hover:text-blue-800 text-sm font-medium"
                       >
                         Cambiar contraseña
                       </button>
@@ -585,11 +585,11 @@ export default function UsuariosList({
                     <div className="col-span-6 sm:col-span-3">
                       <label
                         htmlFor="UsuarioContrasena"
-                        className="block mb-2 text-sm font-medium text-gray-900"
+                        className="block mb-2 text-sm font-medium text-text"
                       >
                         Contraseña
                         {currentUser && (
-                          <span className="text-gray-500 text-xs ml-1">
+                          <span className="text-text-muted text-xs ml-1">
                             (dejar en blanco para no cambiar)
                           </span>
                         )}
@@ -599,7 +599,7 @@ export default function UsuariosList({
                           type={showPassword ? "text" : "password"}
                           name="UsuarioContrasena"
                           id="UsuarioContrasena"
-                          className="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-600 focus:border-blue-600 block w-full p-2.5 pr-10"
+                          className="shadow-sm bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5 pr-10"
                           value={formData.UsuarioContrasena}
                           onChange={handleInputChange}
                           required={!currentUser}
@@ -610,7 +610,7 @@ export default function UsuariosList({
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500"
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-subtle hover:text-text-muted"
                         >
                           {showPassword ? (
                             <EyeSlashIcon className="h-5 w-5" />
@@ -622,7 +622,7 @@ export default function UsuariosList({
                     </div>
                   )}
                   <div className="col-span-6">
-                    <label className="block mb-2 text-sm font-medium text-gray-900">
+                    <label className="block mb-2 text-sm font-medium text-text">
                       Perfiles
                     </label>
                     <div className="flex flex-col gap-0">
@@ -642,11 +642,11 @@ export default function UsuariosList({
                               onChange={() =>
                                 handlePerfilChange(perfil.PerfilId)
                               }
-                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              className="w-4 h-4 text-brand-700 bg-surface-muted border-border rounded-sm focus:ring-2 focus:ring-brand-600/30 focus:ring-2"
                             />
                             <label
                               htmlFor={checkboxId}
-                              className="ms-2 text-sm font-medium text-gray-900"
+                              className="ms-2 text-sm font-medium text-text"
                             >
                               {perfil.PerfilDescripcion}
                             </label>
@@ -658,14 +658,14 @@ export default function UsuariosList({
                 </div>
               </div>
 
-              <div className="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b">
+              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
                 <ActionButton
                   label={currentUser ? "Actualizar" : "Crear"}
                   type="submit"
                 />
                 <ActionButton
                   label="Cancelar"
-                  className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10"
+                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
                   onClick={onCloseModal}
                 />
               </div>

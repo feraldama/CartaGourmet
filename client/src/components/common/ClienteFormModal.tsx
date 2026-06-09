@@ -97,14 +97,14 @@ export default function ClienteFormModal({
           className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
         >
           <div className="flex items-start justify-between p-4 border-b rounded-t">
-            <h3 className="text-xl font-semibold text-gray-900">
+            <h3 className="text-xl font-semibold text-text">
               {currentCliente
                 ? `Editar cliente: ${currentCliente.ClienteId || ""}`
                 : "Crear nuevo cliente"}
             </h3>
             <button
               type="button"
-              className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
+              className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
               onClick={onClose}
             >
               <svg
@@ -129,7 +129,7 @@ export default function ClienteFormModal({
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteRUC"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   RUC
                 </label>
@@ -139,13 +139,13 @@ export default function ClienteFormModal({
                   id="ClienteRUC"
                   value={formData.ClienteRUC}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                 />
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteNombre"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Nombre
                 </label>
@@ -155,14 +155,14 @@ export default function ClienteFormModal({
                   id="ClienteNombre"
                   value={formData.ClienteNombre}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 uppercase"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5 uppercase"
                   required
                 />
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteApellido"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Apellido
                 </label>
@@ -172,13 +172,13 @@ export default function ClienteFormModal({
                   id="ClienteApellido"
                   value={formData.ClienteApellido}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 uppercase"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5 uppercase"
                 />
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteDireccion"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Dirección
                 </label>
@@ -188,13 +188,13 @@ export default function ClienteFormModal({
                   id="ClienteDireccion"
                   value={formData.ClienteDireccion}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                 />
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteTelefono"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Teléfono
                 </label>
@@ -204,13 +204,13 @@ export default function ClienteFormModal({
                   id="ClienteTelefono"
                   value={formData.ClienteTelefono}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                 />
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="ClienteTipo"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Tipo
                 </label>
@@ -219,7 +219,7 @@ export default function ClienteFormModal({
                   id="ClienteTipo"
                   value={formData.ClienteTipo}
                   onChange={handleInputChange}
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                   required
                 >
                   <option value="MI">Minorista</option>
@@ -229,7 +229,7 @@ export default function ClienteFormModal({
               <div className="col-span-6 sm:col-span-3">
                 <label
                   htmlFor="UsuarioId"
-                  className="block mb-2 text-sm font-medium text-gray-900"
+                  className="block mb-2 text-sm font-medium text-text"
                 >
                   Usuario ID
                 </label>
@@ -240,19 +240,19 @@ export default function ClienteFormModal({
                   value={formData.UsuarioId}
                   readOnly
                   disabled
-                  className="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5"
+                  className="bg-surface-muted border border-border text-text text-sm rounded-lg block w-full p-2.5"
                 />
               </div>
             </div>
           </div>
-          <div className="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b">
+          <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
             <ActionButton
               label={currentCliente ? "Actualizar" : "Crear"}
               type="submit"
             />
             <ActionButton
               label="Cancelar"
-              className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10"
+              className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
               onClick={onClose}
             />
           </div>

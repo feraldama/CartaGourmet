@@ -146,7 +146,7 @@ export default function FacturasList({
         </div>
       </div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-text-muted">
           Mostrando {formatMiles(facturas.length)} de{" "}
           {formatMiles(pagination?.totalItems || 0)} facturas
         </div>
@@ -173,14 +173,14 @@ export default function FacturasList({
               className="relative bg-white rounded-lg shadow max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-text">
                   {currentFactura
                     ? `Editar factura: ${currentFactura.FacturaId}`
                     : "Crear nueva factura"}
                 </h3>
                 <button
                   type="button"
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
+                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
                   onClick={onCloseModal}
                 >
                   <svg
@@ -205,7 +205,7 @@ export default function FacturasList({
                   <div className="col-span-6">
                     <label
                       htmlFor="FacturaDocumentoTipo"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Tipo de comprobante
                     </label>
@@ -214,7 +214,7 @@ export default function FacturasList({
                       id="FacturaDocumentoTipo"
                       value={formData.FacturaDocumentoTipo}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                     >
                       <option value="FA">Factura</option>
                       <option value="NC">Nota de Crédito</option>
@@ -223,7 +223,7 @@ export default function FacturasList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="FacturaTimbrado"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Timbrado (máximo 8 dígitos)
                     </label>
@@ -233,7 +233,7 @@ export default function FacturasList({
                       id="FacturaTimbrado"
                       value={formData.FacturaTimbrado}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       placeholder="12345678"
                       maxLength={8}
                       pattern="[0-9]{1,8}"
@@ -243,7 +243,7 @@ export default function FacturasList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="FacturaDesde"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Desde (máximo 7 dígitos)
                     </label>
@@ -253,7 +253,7 @@ export default function FacturasList({
                       id="FacturaDesde"
                       value={formData.FacturaDesde}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       placeholder="1"
                       maxLength={7}
                       pattern="[0-9]{1,7}"
@@ -263,7 +263,7 @@ export default function FacturasList({
                   <div className="col-span-6 sm:col-span-3">
                     <label
                       htmlFor="FacturaHasta"
-                      className="block mb-2 text-sm font-medium text-gray-900"
+                      className="block mb-2 text-sm font-medium text-text"
                     >
                       Hasta (máximo 7 dígitos)
                     </label>
@@ -273,7 +273,7 @@ export default function FacturasList({
                       id="FacturaHasta"
                       value={formData.FacturaHasta}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       placeholder="1000"
                       maxLength={7}
                       pattern="[0-9]{1,7}"
@@ -281,21 +281,21 @@ export default function FacturasList({
                     />
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-text-muted">
                   <p>• El timbrado debe tener máximo 8 dígitos numéricos</p>
                   <p>• Los números desde/hasta deben tener máximo 7 dígitos</p>
                   <p>• El número "Desde" debe ser menor que "Hasta"</p>
                   <p>• No se permiten superposiciones de rangos</p>
                 </div>
               </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b">
+              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
                 <ActionButton
                   label={currentFactura ? "Actualizar" : "Crear"}
                   type="submit"
                 />
                 <ActionButton
                   label="Cancelar"
-                  className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10"
+                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
                   onClick={onCloseModal}
                 />
               </div>

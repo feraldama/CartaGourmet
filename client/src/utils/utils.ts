@@ -37,6 +37,7 @@ export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("es-PY", {
     style: "currency",
     currency: "PYG",
+    useGrouping: true,
   }).format(value);
 };
 
@@ -117,8 +118,8 @@ export const generatePresupuestoPDF = async (
   const body = carrito.map((item) => [
     item.nombre,
     String(item.cantidad),
-    `Gs. ${item.precio.toLocaleString()}`,
-    `Gs. ${(item.precio * item.cantidad).toLocaleString()}`,
+    `Gs. ${formatMiles(item.precio)}`,
+    `Gs. ${formatMiles(item.precio * item.cantidad)}`,
   ]);
 
   autoTable(doc, {
@@ -159,14 +160,14 @@ export const generatePresupuestoPDF = async (
     const observacionHeight = lines.length * 5; // Altura aproximada de las líneas
     doc.setFontSize(16);
     doc.text(
-      `Total: Gs. ${subtotal.toLocaleString()}`,
+      `Total: Gs. ${formatMiles(subtotal)}`,
       14,
       finalY + 12 + observacionHeight + 8
     );
   } else {
     // Si no hay observación, mostrar el total directamente
     doc.setFontSize(16);
-    doc.text(`Total: Gs. ${subtotal.toLocaleString()}`, 14, finalY + 16);
+    doc.text(`Total: Gs. ${formatMiles(subtotal)}`, 14, finalY + 16);
   }
 
   doc.save("presupuesto.pdf");

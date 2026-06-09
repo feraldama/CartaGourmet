@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useAuth } from "../../../contexts/useAuth";
 import { useNavigate } from "react-router-dom";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  UserIcon,
+  LockClosedIcon,
+  ArrowRightIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import logo from "../../../assets/img/logo.png";
 
 interface Credentials {
   email: string;
@@ -16,6 +25,7 @@ function Login() {
   });
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +45,7 @@ function Login() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       await login(credentials);
       navigate("/dashboard");
@@ -45,56 +56,106 @@ function Login() {
         setError("Credenciales incorrectas");
       }
       setTimeout(() => setError(""), 5000);
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const year = new Date().getFullYear();
+
   return (
-    <div className="login-container">
-      {/* <form onSubmit={handleSubmit}> */}
-      <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <img
-            alt="Your Company"
-            src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
-            className="mx-auto h-10 w-auto"
-          />
-          <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight text-gray-900">
-            Iniciar sesión
-          </h2>
+    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
+      {/* ── Panel de marca (oculto en móvil) ───────────────────────────── */}
+      <aside className="relative hidden overflow-hidden bg-sidebar lg:flex lg:flex-col lg:justify-between lg:p-12">
+        {/* Acentos decorativos */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-amber-400/10 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-brand-600/20 blur-3xl"
+        />
+
+        {/* Marca */}
+        <div className="relative z-10 flex items-center gap-3">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1.5 shadow-elevated">
+            <img src={logo} alt="Carta Gourmet" className="h-full w-full object-contain" />
+          </span>
+          <span className="font-display text-xl font-bold tracking-tight text-white">
+            Carta Gourmet
+          </span>
         </div>
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+
+        {/* Mensaje central */}
+        <div className="relative z-10 max-w-md">
+          <div className="mb-6 h-1 w-16 rounded-full bg-amber-400" />
+          <h1 className="font-display text-4xl font-extrabold leading-tight !text-white">
+            Tu cocina, bajo control.
+          </h1>
+          <p className="mt-4 text-lg leading-relaxed text-slate-300">
+            Ventas, caja, inventario y reportes de tu negocio gastronómico en un
+            solo lugar.
+          </p>
+        </div>
+
+        <p className="relative z-10 text-sm text-slate-400">
+          © {year} Carta Gourmet · Sistema de gestión gastronómica
+        </p>
+      </aside>
+
+      {/* ── Panel del formulario ───────────────────────────────────────── */}
+      <main className="flex flex-col justify-center bg-surface-alt px-6 py-12 sm:px-12">
+        <div className="mx-auto w-full max-w-sm">
+          {/* Marca compacta (solo móvil) */}
+          <div className="mb-10 flex flex-col items-center lg:hidden">
+            <span className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2 shadow-card">
+              <img src={logo} alt="Carta Gourmet" className="h-full w-full object-contain" />
+            </span>
+            <span className="mt-3 font-display text-2xl font-bold tracking-tight text-text">
+              Carta Gourmet
+            </span>
+          </div>
+
+          <header className="mb-8">
+            <h2 className="font-display text-3xl font-bold tracking-tight text-text-strong">
+              Bienvenido de nuevo
+            </h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Ingresá tus credenciales para acceder al sistema.
+            </p>
+          </header>
+
           {error && (
             <div
-              className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
               role="alert"
+              aria-live="assertive"
+              className="mb-6 flex items-start gap-3 rounded-lg border border-danger-100 bg-danger-50 px-4 py-3 text-sm text-danger-800"
             >
-              <strong className="font-bold">¡Atención! </strong>
-              <span className="block sm:inline">{error}</span>
-              <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                <svg
-                  className="fill-current h-6 w-6 text-red-500 cursor-pointer"
-                  role="button"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  onClick={() => setError("")}
-                >
-                  <title>Cerrar</title>
-                  <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z" />
-                </svg>
-              </span>
+              <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-danger-700" />
+              <span className="flex-1">{error}</span>
+              <button
+                type="button"
+                onClick={() => setError("")}
+                aria-label="Cerrar aviso"
+                className="-m-1 cursor-pointer rounded p-1 text-danger-700 transition-colors hover:bg-danger-100"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
             </div>
           )}
-          {/* <div className="alert error">{error}</div> */}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Usuario */}
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm/6 font-medium text-gray-900"
+                className="block text-sm font-medium text-text"
               >
                 Usuario
               </label>
-              <div className="mt-2">
+              <div className="relative mt-2">
+                <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-subtle" />
                 <input
                   ref={emailInputRef}
                   id="email"
@@ -103,22 +164,23 @@ function Login() {
                   value={credentials.email}
                   onChange={handleChange}
                   required
-                  autoComplete="email"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                  autoComplete="username"
+                  placeholder="tu.usuario"
+                  className="block w-full rounded-md border border-border bg-surface py-2.5 pl-10 pr-3 text-base text-text shadow-xs outline-none transition placeholder:text-text-subtle focus:border-brand-700 focus:ring-2 focus:ring-brand-700/30 sm:text-sm"
                 />
               </div>
             </div>
 
+            {/* Contraseña */}
             <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-sm/6 font-medium text-gray-900"
-                >
-                  Contraseña
-                </label>
-              </div>
-              <div className="mt-2 relative">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-text"
+              >
+                Contraseña
+              </label>
+              <div className="relative mt-2">
+                <LockClosedIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-subtle" />
                 <input
                   id="password"
                   name="password"
@@ -127,12 +189,16 @@ function Login() {
                   onChange={handleChange}
                   required
                   autoComplete="current-password"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 pr-10 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                  placeholder="••••••••"
+                  className="block w-full rounded-md border border-border bg-surface py-2.5 pl-10 pr-10 text-base text-text shadow-xs outline-none transition placeholder:text-text-subtle focus:border-brand-700 focus:ring-2 focus:ring-brand-700/30 sm:text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500 cursor-pointer"
+                  aria-label={
+                    showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                  }
+                  className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3 text-text-subtle transition-colors hover:text-text-muted"
                 >
                   {showPassword ? (
                     <EyeSlashIcon className="h-5 w-5" />
@@ -143,17 +209,50 @@ function Login() {
               </div>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 cursor-pointer"
-              >
-                Ingresar
-              </button>
-            </div>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
+                    />
+                  </svg>
+                  Ingresando…
+                </>
+              ) : (
+                <>
+                  Ingresar
+                  <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
+            </button>
           </form>
+
+          <p className="mt-10 text-center text-xs text-text-subtle lg:hidden">
+            © {year} Carta Gourmet
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

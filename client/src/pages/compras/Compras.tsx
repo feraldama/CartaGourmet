@@ -567,9 +567,9 @@ export default function Compras() {
                     key={p.cartItemId}
                     className={`${
                       p.cartItemId === selectedProductId
-                        ? "bg-gray-50 border-gray-300"
+                        ? "bg-surface-muted border-border"
                         : idx !== carrito.length - 1
-                        ? "border-b border-gray-200"
+                        ? "border-b border-border"
                         : ""
                     } transition-colors`}
                   >
@@ -585,7 +585,7 @@ export default function Compras() {
                             {p.nombre}
                           </div>
                           <div
-                            className="text-red-600 text-sm mt-1 cursor-pointer"
+                            className="text-danger-700 text-sm mt-1 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               quitarProducto(p.cartItemId);
@@ -613,7 +613,7 @@ export default function Compras() {
                               cambiarCantidad(p.cartItemId, p.cantidad - 1);
                               setSelectedProductId(p.cartItemId);
                             }}
-                            className="w-8 h-8 border border-gray-300 rounded bg-gray-50 text-gray-700 text-lg font-bold flex items-center justify-center hover:bg-gray-100"
+                            className="w-8 h-8 border border-border rounded bg-surface-muted text-text text-lg font-bold flex items-center justify-center hover:bg-surface-muted"
                           >
                             -
                           </button>
@@ -621,7 +621,7 @@ export default function Compras() {
                             type="number"
                             value={p.cantidad}
                             min={0}
-                            className="w-10 h-8 text-center border border-gray-300 rounded bg-gray-50 text-base font-semibold text-[#222] mx-1"
+                            className="w-10 h-8 text-center border border-border rounded bg-surface-muted text-base font-semibold text-[#222] mx-1"
                             readOnly
                             ref={(el) => {
                               cantidadRefs.current[p.cartItemId] = el || null;
@@ -654,7 +654,7 @@ export default function Compras() {
                               cambiarCantidad(p.cartItemId, p.cantidad + 1);
                               setSelectedProductId(p.cartItemId);
                             }}
-                            className="w-8 h-8 border border-gray-300 rounded bg-gray-50 text-gray-700 text-lg font-bold flex items-center justify-center hover:bg-gray-100"
+                            className="w-8 h-8 border border-border rounded bg-surface-muted text-text text-lg font-bold flex items-center justify-center hover:bg-surface-muted"
                           >
                             +
                           </button>
@@ -677,17 +677,17 @@ export default function Compras() {
                           />
                           <label
                             htmlFor={`caja-checkbox-${p.cartItemId}`}
-                            className="text-lg text-gray-700 cursor-pointer select-none font-medium"
+                            className="text-lg text-text cursor-pointer select-none font-medium"
                           >
                             Caja
                           </label>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 align-middle text-right font-medium text-[17px] text-gray-700">
+                    <td className="py-3 align-middle text-right font-medium text-[17px] text-text">
                       Gs. {formatMiles(p.precioUnitario)}
                     </td>
-                    <td className="py-3 align-middle text-right text-sm text-gray-600">
+                    <td className="py-3 align-middle text-right text-sm text-text-muted">
                       <div className="flex flex-col gap-0.5">
                         <span>
                           Venta:{" "}
@@ -703,7 +703,7 @@ export default function Compras() {
                               p.precioUnitario) *
                               100 <
                               2
-                              ? "text-red-600 font-medium"
+                              ? "text-danger-700 font-medium"
                               : ""
                           }
                         >
@@ -730,7 +730,7 @@ export default function Compras() {
                         }}
                         onClick={(e) => e.stopPropagation()}
                         onFocus={(e) => e.stopPropagation()}
-                        className="w-24 p-2 border border-gray-300 rounded text-center"
+                        className="w-24 p-2 border border-border rounded text-center"
                         placeholder="0"
                       />
                     </td>
@@ -746,7 +746,7 @@ export default function Compras() {
           {/* Total */}
           <div className="flex justify-between items-center mb-3">
             <span className="font-bold text-lg">Total</span>
-            <span className="font-semibold text-lg text-green-500">
+            <span className="font-semibold text-lg text-success-700">
               Gs. {formatMiles(total)}
             </span>
           </div>
@@ -754,25 +754,25 @@ export default function Compras() {
           {/* Información de la compra */}
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-text mb-1">
                 Número de Factura
               </label>
               <input
                 type="text"
                 value={compraFactura}
                 onChange={(e) => setCompraFactura(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-border rounded-lg"
                 placeholder="Ej: 001-001-0001234"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-text mb-1">
                 Tipo de Compra
               </label>
               <select
                 value={compraTipo}
                 onChange={(e) => setCompraTipo(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-border rounded-lg"
               >
                 <option value="CO">Contado</option>
                 <option value="CR">Crédito</option>
@@ -782,7 +782,7 @@ export default function Compras() {
 
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-text mb-1">
                 Monto Entregado
               </label>
               <input
@@ -792,19 +792,19 @@ export default function Compras() {
                   const value = e.target.value.replace(/[^\d]/g, "");
                   setCompraEntrega(Number(value));
                 }}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-border rounded-lg"
                 placeholder="0"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-text mb-1">
                 Fecha de Compra
               </label>
               <input
                 type="date"
                 value={compraFecha}
                 onChange={(e) => setCompraFecha(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-border rounded-lg"
               />
             </div>
           </div>
@@ -812,7 +812,7 @@ export default function Compras() {
           {/* Botón Comprar */}
           <div className="mb-3">
             <button
-              className="w-full bg-green-500 border border-green-500 rounded-lg text-white font-medium text-lg h-[60px] flex items-center justify-center hover:bg-green-600 transition"
+              className="w-full bg-success-700 border border-green-500 rounded-lg text-white font-medium text-lg h-[60px] flex items-center justify-center hover:bg-success-800 transition"
               onClick={sendRequest}
             >
               Comprar
@@ -822,7 +822,7 @@ export default function Compras() {
           {/* Recuadro inferior para el nombre del proveedor */}
           <div className="mt-2">
             <button
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 text-center text-gray-700 font-semibold text-base tracking-wide hover:bg-green-100 transition cursor-pointer"
+              className="w-full bg-surface-muted border border-border rounded-lg py-2 text-center text-text font-semibold text-base tracking-wide hover:bg-green-100 transition cursor-pointer"
               onClick={() => setShowProveedorModal(true)}
             >
               {proveedorSeleccionado
@@ -865,12 +865,12 @@ export default function Compras() {
                 </span>
               </span>
               {localNombre && (
-                <span className="text-red-600 font-medium">
+                <span className="text-danger-700 font-medium">
                   | Local: {localNombre}
                 </span>
               )}
               {cajaAperturada && (
-                <span className="text-blue-600 font-medium">
+                <span className="text-brand-700 font-medium">
                   | Caja: {cajaAperturada.CajaDescripcion}
                 </span>
               )}
@@ -896,11 +896,11 @@ export default function Compras() {
               }}
             >
               {loading ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   Cargando productos...
                 </div>
               ) : productos.length === 0 ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   No se encontraron productos
                 </div>
               ) : (

@@ -436,14 +436,14 @@ export default function Inventario() {
                     <th
                       key={a.AlmacenId}
                       colSpan={2}
-                      className="py-2 px-1 font-semibold text-[13px] text-center border-l border-gray-200"
+                      className="py-2 px-1 font-semibold text-[13px] text-center border-l border-border"
                     >
                       {a.AlmacenNombre}
                     </th>
                   ))}
                   <th
                     rowSpan={2}
-                    className="py-3 px-2 font-semibold text-[13px] text-center border-l-2 border-gray-300 bg-[#e8eef7] align-middle w-[70px]"
+                    className="py-3 px-2 font-semibold text-[13px] text-center border-l-2 border-border bg-[#e8eef7] align-middle w-[70px]"
                   >
                     Total Caja
                   </th>
@@ -454,13 +454,13 @@ export default function Inventario() {
                     Total Unit.
                   </th>
                 </tr>
-                <tr className="bg-[#f0f4ff] text-[12px] text-gray-600">
+                <tr className="bg-[#f0f4ff] text-[12px] text-text-muted">
                   {almacenes.map((a) => (
                     <React.Fragment key={a.AlmacenId}>
-                      <th className="py-1 px-1 text-center border-l border-gray-200 w-[52px]">
+                      <th className="py-1 px-1 text-center border-l border-border w-[52px]">
                         Caja
                       </th>
-                      <th className="py-1 px-1 text-center border-l border-gray-200 w-[52px]">
+                      <th className="py-1 px-1 text-center border-l border-border w-[52px]">
                         Unit.
                       </th>
                     </React.Fragment>
@@ -475,9 +475,9 @@ export default function Inventario() {
                       key={p.cartItemId}
                       className={`${
                         p.cartItemId === selectedProductId
-                          ? "bg-gray-50"
+                          ? "bg-surface-muted"
                           : idx !== carrito.length - 1
-                          ? "border-b border-gray-200"
+                          ? "border-b border-border"
                           : ""
                       } transition-colors`}
                     >
@@ -495,7 +495,7 @@ export default function Inventario() {
                             {puedeEliminar && (
                               <button
                                 type="button"
-                                className="text-red-600 text-xs mt-0.5"
+                                className="text-danger-700 text-xs mt-0.5"
                                 onClick={() => quitarProducto(p.cartItemId)}
                               >
                                 Eliminar
@@ -506,7 +506,7 @@ export default function Inventario() {
                       </td>
                       {p.almacenesStock.map((pa, ai) => (
                         <React.Fragment key={pa.AlmacenId}>
-                          <td className="border-l border-gray-200 px-1 py-2 align-middle text-center">
+                          <td className="border-l border-border px-1 py-2 align-middle text-center">
                             <input
                               type="number"
                               min={0}
@@ -520,10 +520,10 @@ export default function Inventario() {
                                 )
                               }
                               disabled={!puedeEditar}
-                              className="w-12 h-8 text-center border border-gray-300 rounded text-sm block mx-auto"
+                              className="w-12 h-8 text-center border border-border rounded text-sm block mx-auto"
                             />
                           </td>
-                          <td className="border-l border-gray-200 px-1 py-2 align-middle text-center">
+                          <td className="border-l border-border px-1 py-2 align-middle text-center">
                             <input
                               type="number"
                               min={0}
@@ -546,7 +546,7 @@ export default function Inventario() {
                                 );
                               }}
                               disabled={!puedeEditar}
-                              className="w-12 h-8 text-center border border-gray-300 rounded text-sm block mx-auto"
+                              className="w-12 h-8 text-center border border-border rounded text-sm block mx-auto"
                               title={`Máx. ${
                                 (p.ProductoCantidadCaja || 1) - 1
                               }`}
@@ -554,10 +554,10 @@ export default function Inventario() {
                           </td>
                         </React.Fragment>
                       ))}
-                      <td className="px-2 py-2 text-center font-semibold border-l-2 border-gray-300 bg-[#e8eef7] text-gray-900 align-middle">
+                      <td className="px-2 py-2 text-center font-semibold border-l-2 border-border bg-[#e8eef7] text-text align-middle">
                         {totalCajas}
                       </td>
-                      <td className="px-2 py-2 text-center font-semibold bg-[#e8eef7] text-gray-900 align-middle">
+                      <td className="px-2 py-2 text-center font-semibold bg-[#e8eef7] text-text align-middle">
                         {totalUnitario}
                       </td>
                     </tr>
@@ -574,7 +574,7 @@ export default function Inventario() {
             <button
               className={`w-full border rounded-lg text-white font-medium text-lg h-[60px] flex items-center justify-center transition ${
                 puedeCrear || puedeEditar
-                  ? "bg-green-500 border-green-500 hover:bg-green-600"
+                  ? "bg-success-700 border-green-500 hover:bg-success-800"
                   : "bg-gray-400 border-gray-400 cursor-not-allowed"
               }`}
               onClick={sendRequest}
@@ -583,11 +583,11 @@ export default function Inventario() {
               Fijar stock por almacén
             </button>
           </div>
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-text-muted text-center">
             Los totales se calculan según Cantidad en Caja de cada producto.
           </p>
           {localNombre && (
-            <div className="mt-2 text-center text-sm text-gray-600">
+            <div className="mt-2 text-center text-sm text-text-muted">
               Local: <span className="font-semibold">{localNombre}</span>
             </div>
           )}
@@ -616,7 +616,7 @@ export default function Inventario() {
                 </span>
               </span>
               {localNombre && (
-                <span className="text-red-600 font-medium">
+                <span className="text-danger-700 font-medium">
                   | Local: {localNombre}
                 </span>
               )}
@@ -642,11 +642,11 @@ export default function Inventario() {
               }}
             >
               {loading ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   Cargando productos...
                 </div>
               ) : productos.length === 0 ? (
-                <div className="col-span-full text-center py-8 text-gray-500">
+                <div className="col-span-full text-center py-8 text-text-muted">
                   No se encontraron productos
                 </div>
               ) : (

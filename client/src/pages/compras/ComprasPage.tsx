@@ -237,7 +237,7 @@ export default function ComprasPage() {
       const productosTable = `
         <table class="w-full mt-4" style="min-width: 1200px">
           <thead>
-            <tr class="bg-gray-100">
+            <tr class="bg-surface-muted">
               <th class="text-left py-2 px-4" style="min-width: 200px">Producto</th>
               <th class="text-right py-2 px-4" style="min-width: 120px">Cantidad</th>
               <th class="text-right py-2 px-4" style="min-width: 160px">Precio Unit.</th>
@@ -249,7 +249,7 @@ export default function ComprasPage() {
             ${productosConDetalles
               .map(
                 (prod) => `
-              <tr class="border-b hover:bg-gray-50">
+              <tr class="border-b hover:bg-surface-muted">
                 <td class="py-2 px-4">${prod.ProductoNombre}</td>
                 <td class="text-right py-2 px-4">${
                   prod.CompraProductoCantidad

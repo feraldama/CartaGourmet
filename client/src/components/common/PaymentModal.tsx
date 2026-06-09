@@ -250,125 +250,55 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   if (!show) return null;
 
+  // Clases compartidas para inputs de montos. El estado "activo" resalta
+  // el medio de pago seleccionado (antes era borde indigo + fondo celeste).
+  const montoInputCls = (active: boolean) =>
+    `w-[120px] rounded-md px-2.5 py-1.5 text-right font-num text-base outline-none transition-colors focus:ring-2 focus:ring-brand-600/30 ${
+      active
+        ? "border-2 border-brand-400 bg-brand-50"
+        : "border border-border bg-surface-muted"
+    }`;
+  const montoLabelCls = "mr-2 flex-1 text-right text-base text-text-muted";
+  const rowCls = "mb-2.5 flex items-center";
+
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.15)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
       onKeyPress={handleKeyPress}
       tabIndex={0}
     >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 12,
-          width: 800,
-          maxWidth: "98vw",
-          boxShadow: "0 8px 32px #0002",
-          padding: 32,
-          position: "relative",
-        }}
-      >
+      <div className="relative w-[800px] max-w-[98vw] rounded-xl bg-surface p-8 shadow-modal">
         <button
           onClick={handleClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 20,
-            fontSize: 28,
-            color: "#888",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-          }}
+          aria-label="Cerrar"
+          className="absolute right-5 top-4 cursor-pointer border-none bg-transparent text-3xl leading-none text-text-subtle transition-colors hover:text-text"
         >
           ×
         </button>
-        <h2
-          style={{
-            fontWeight: 700,
-            fontSize: 26,
-            marginBottom: 24,
-            color: "#2d3748",
-          }}
-        >
+        <h2 className="mb-6 font-display text-[26px] font-bold text-text-strong">
           Seleccione un método de pago
         </h2>
-        <div style={{ display: "flex", gap: 24 }}>
+        <div className="flex gap-6">
           {/* Columna izquierda */}
-          <div style={{ flex: 1 }}>
+          <div className="flex-1">
             {/* TOTAL */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 18,
-              }}
-            >
-              <div
-                style={{
-                  background: "#e9eef7",
-                  borderRadius: 6,
-                  padding: "8px 22px",
-                  fontWeight: 700,
-                  fontSize: 22,
-                  color: "#3b4256",
-                  marginRight: 8,
-                }}
-              >
+            <div className="mb-[18px] flex items-center">
+              <div className="mr-2 rounded-md bg-surface-sunken px-[22px] py-2 text-[22px] font-bold text-text">
                 Total
               </div>
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: 28,
-                  color: "#2ecc40",
-                  background: "#f7fafc",
-                  borderRadius: 6,
-                  padding: "8px 22px",
-                }}
-              >
+              <div className="rounded-md bg-surface-muted px-[22px] py-2 font-num text-[28px] font-bold text-success-700">
                 Gs. {formatMiles(totalCost)}
               </div>
             </div>
             {/* Efectivo */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
-                Efectivo:
-              </label>
+            <div className={rowCls}>
+              <label className={montoLabelCls}>Efectivo:</label>
               <input
                 id="efectivo-input"
                 type="text"
                 value={efectivo ? formatMiles(efectivo) : ""}
                 onFocus={(e) => {
                   setPagoTipoLocal("E");
-                  // if (efectivo == 0) {
-                  //   setEfectivo(totalRest);
-                  // setTotalRest(0);
-                  // }
                   e.target.select();
                 }}
                 onChange={(e) => {
@@ -384,40 +314,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     voucher;
                   setTotalRest(totalResto);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "E"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "E" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "E")}
               />
             </div>
             {/* Transferencia */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
-                Transferencia:
-              </label>
+            <div className={rowCls}>
+              <label className={montoLabelCls}>Transferencia:</label>
               <input
                 type="text"
                 value={banco ? formatMiles(banco) : ""}
@@ -442,38 +344,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     voucher;
                   setTotalRest(totalResto);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "B"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "B" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "B")}
               />
             </div>
             {/* Tarjeta Débito */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
+            <div className={rowCls}>
+              <label className={montoLabelCls}>
                 Tarjeta Débito (3% adicional):
               </label>
               <input
@@ -491,38 +367,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     document.getElementById("venta-nro-pos-input")?.focus();
                   }, 100);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "D"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "D" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "D")}
               />
             </div>
             {/* Tarjeta Crédito */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
+            <div className={rowCls}>
+              <label className={montoLabelCls}>
                 Tarjeta Crédito (5% adicional):
               </label>
               <input
@@ -540,39 +390,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     document.getElementById("venta-nro-pos-input")?.focus();
                   }, 100);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "CR"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "CR" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "CR")}
               />
             </div>
             {/* Nro. POS - solo cuando hay pago con tarjeta débito o crédito */}
             {pagoConTarjeta && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <label
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    color: "#444",
-                    textAlign: "right",
-                    marginRight: 8,
-                  }}
-                >
+              <div className={rowCls}>
+                <label className={montoLabelCls}>
                   Nro. POS (mín. 4 dígitos):
                 </label>
                 <input
@@ -586,42 +410,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     setVentaNroPOS(val);
                   }}
                   placeholder="Ej: 1234"
-                  style={{
-                    width: 120,
-                    padding: "6px 10px",
-                    border:
-                      ventaNroPOS.trim().length > 0 &&
-                      ventaNroPOS.trim().length < 4
-                        ? "2px solid #ef4444"
-                        : "1px solid #cbd5e1",
-                    borderRadius: 6,
-                    fontSize: 16,
-                    textAlign: "right",
-                    background: "#f9fafb",
-                    outline: "none",
-                  }}
+                  className={`w-[120px] rounded-md bg-surface-muted px-2.5 py-1.5 text-right font-num text-base outline-none transition-colors focus:ring-2 focus:ring-brand-600/30 ${
+                    ventaNroPOS.trim().length > 0 &&
+                    ventaNroPOS.trim().length < 4
+                      ? "border-2 border-danger-500"
+                      : "border border-border"
+                  }`}
                 />
               </div>
             )}
             {/* Cuenta Cliente */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
-                Cuenta de cliente:
-              </label>
+            <div className={rowCls}>
+              <label className={montoLabelCls}>Cuenta de cliente:</label>
               <input
                 type="text"
                 value={cuentaCliente ? formatMiles(cuentaCliente) : ""}
@@ -646,40 +446,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     voucher;
                   setTotalRest(totalResto);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "C"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "C" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "C")}
               />
             </div>
             {/* Voucher */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  color: "#444",
-                  textAlign: "right",
-                  marginRight: 8,
-                }}
-              >
-                Voucher:
-              </label>
+            <div className={rowCls}>
+              <label className={montoLabelCls}>Voucher:</label>
               <input
                 type="text"
                 value={voucher ? formatMiles(voucher) : ""}
@@ -704,38 +476,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     newValue;
                   setTotalRest(totalResto);
                 }}
-                style={{
-                  width: 120,
-                  padding: "6px 10px",
-                  border:
-                    pagoTipo === "V"
-                      ? "2px solid #a5b4fc"
-                      : "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  fontSize: 16,
-                  textAlign: "right",
-                  background: pagoTipo === "V" ? "#f0f6ff" : "#f9fafb",
-                  outline: "none",
-                }}
+                className={montoInputCls(pagoTipo === "V")}
               />
             </div>
             {/* Vuelto */}
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: 28,
-                color: "#374151",
-                marginTop: 24,
-              }}
-            >
+            <div className="mt-6 font-num text-[28px] font-bold text-text-strong">
               Vuelto:{" "}
-              <span style={{ color: totalRest < 0 ? "red" : "#000" }}>
+              <span className={totalRest < 0 ? "text-danger-700" : "text-text-strong"}>
                 {totalRest < 0 ? formatMiles(totalRest * -1) : "0"}
               </span>
             </div>
             {/* Tipo de comprobante a emitir e imprimir */}
             <div className="mt-[18px]">
-              <div className="text-sm text-gray-500 font-semibold mb-1.5">
+              <div className="text-sm text-text-muted font-semibold mb-1.5">
                 Comprobante
               </div>
               <div className="flex gap-2">
@@ -753,8 +506,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                       onClick={() => setDocumentoTipo(value)}
                       className={`flex-1 px-3 py-2 rounded-lg text-[15px] font-semibold cursor-pointer transition-colors ${
                         activo
-                          ? "border-2 border-blue-600 bg-blue-50 text-blue-700"
-                          : "border border-slate-300 bg-gray-50 text-gray-700"
+                          ? "border-2 border-brand-700 bg-brand-50 text-brand-700"
+                          : "border border-border bg-surface-muted text-text"
                       }`}
                     >
                       {label}
@@ -763,57 +516,29 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 })}
               </div>
             </div>
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
+            <div className="mt-[18px] flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={printTicket}
                 onChange={(e) => setPrintTicket(e.target.checked)}
                 id="imprimir"
+                className="h-4 w-4 cursor-pointer accent-brand-700"
               />
               <label
                 htmlFor="imprimir"
-                style={{ fontSize: 17, color: "#6b7280", fontWeight: 500 }}
+                className="cursor-pointer text-[17px] font-medium text-text-muted"
               >
                 Imprimir ticket
               </label>
             </div>
           </div>
           {/* Columna derecha: Pad numérico */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 10,
-                marginBottom: 10,
-              }}
-            >
+          <div className="flex flex-1 flex-col gap-3">
+            <div className="mb-2.5 grid grid-cols-3 gap-2.5">
               {buttonsPago.flat().map((label, idx) => (
                 <button
                   key={idx}
-                  style={{
-                    height: 54,
-                    fontSize: 22,
-                    background: "#f8fafc",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
+                  className="h-[54px] cursor-pointer rounded-lg border border-border bg-surface-muted text-[22px] font-semibold transition-colors hover:bg-border"
                   onClick={() => onNumberClickModal(label)}
                 >
                   {label}
@@ -821,53 +546,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               ))}
             </div>
             <button
-              style={{
-                height: 48,
-                fontSize: 18,
-                background: "#f8fafc",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontWeight: 500,
-              }}
+              className="h-12 cursor-pointer rounded-lg border border-border bg-surface-muted text-lg font-medium transition-colors hover:bg-border"
               onClick={cerarCantidadModal}
             >
               Cerar
             </button>
           </div>
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            marginTop: 32,
-          }}
-        >
+        <div className="mt-8 flex justify-end gap-3">
           <button
-            style={{
-              background: "#e5e7eb",
-              color: "#374151",
-              fontWeight: 600,
-              fontSize: 18,
-              borderRadius: 8,
-              padding: "10px 32px",
-              border: "none",
-              cursor: "pointer",
-            }}
+            className="cursor-pointer rounded-lg bg-surface-muted px-8 py-2.5 text-lg font-semibold text-text transition-colors hover:bg-border disabled:cursor-not-allowed disabled:opacity-50"
             onClick={handleClose}
             disabled={isSubmitting}
           >
             Cancelar
           </button>
           <button
-            className={`px-8 py-2.5 rounded-lg font-bold text-lg border-none transition-colors duration-200
-              ${
-                isSubmitting || totalRest > 0 || !ventaNroPOSValido
-                  ? "bg-blue-200 text-white cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-              }
-            `}
+            className={`px-8 py-2.5 rounded-lg font-bold text-lg text-white transition-colors duration-200 ${
+              isSubmitting || totalRest > 0 || !ventaNroPOSValido
+                ? "bg-brand-300 cursor-not-allowed"
+                : "bg-brand-700 hover:bg-brand-800 cursor-pointer"
+            }`}
             onClick={handleSendRequest}
             disabled={isSubmitting || totalRest > 0 || !ventaNroPOSValido}
           >

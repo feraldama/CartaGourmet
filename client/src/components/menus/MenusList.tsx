@@ -107,7 +107,7 @@ export default function MenusList({
         </div>
       </div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-text-muted">
           Mostrando {menus.length} de {pagination?.totalItems ?? menus.length} menús
         </div>
       </div>
@@ -133,14 +133,14 @@ export default function MenusList({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-text">
                   {currentMenu
                     ? `Editar menú: ${currentMenu.MenuNombre}`
                     : "Crear nuevo menú"}
                 </h3>
                 <button
                   type="button"
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
+                  className="text-text-subtle bg-transparent hover:bg-surface-muted hover:text-text rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
                   onClick={onCloseModal}
                 >
                   <svg
@@ -163,7 +163,7 @@ export default function MenusList({
               <div className="p-6 space-y-6">
                 <div className="grid grid-cols-6 gap-6">
                   <div className="col-span-6 sm:col-span-3">
-                    <label className="block mb-2 text-sm font-medium text-gray-900">
+                    <label className="block mb-2 text-sm font-medium text-text">
                       ID
                     </label>
                     <input
@@ -171,13 +171,13 @@ export default function MenusList({
                       name="MenuId"
                       value={formData.MenuId}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       required
                       disabled={!!currentMenu}
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-3">
-                    <label className="block mb-2 text-sm font-medium text-gray-900">
+                    <label className="block mb-2 text-sm font-medium text-text">
                       Nombre
                     </label>
                     <input
@@ -185,21 +185,21 @@ export default function MenusList({
                       name="MenuNombre"
                       value={formData.MenuNombre}
                       onChange={handleInputChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                      className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
                       required
                       style={{ textTransform: "uppercase" }}
                     />
                   </div>
                 </div>
               </div>
-              <div className="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b">
+              <div className="flex items-center p-6 space-x-2 border-t border-border rounded-b">
                 <ActionButton
                   label={currentMenu ? "Actualizar" : "Crear"}
                   type="submit"
                 />
                 <ActionButton
                   label="Cancelar"
-                  className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10"
+                  className="text-text-muted bg-white hover:bg-surface-muted focus:ring-4 focus:outline-none focus:ring-2 focus:ring-brand-600/30 rounded-lg border border-border text-sm font-medium px-5 py-2.5 hover:text-text focus:z-10"
                   onClick={onCloseModal}
                 />
               </div>
