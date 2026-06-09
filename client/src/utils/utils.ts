@@ -90,7 +90,7 @@ export const generatePresupuestoPDF = async (
 
   // Agregar logo en la esquina superior derecha
   const logo = new Image();
-  logo.src = "/src/assets/img/logo.jpg";
+  logo.src = "/src/assets/img/logo.png";
   doc.addImage(logo, "JPEG", 165, 10, 20, 20);
 
   // Agregar fecha y hora actual
