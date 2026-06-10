@@ -361,7 +361,7 @@ const Venta = {
         ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
         WHERE (
           CAST(v.VentaId AS CHAR) = ?
-          OR DATE_FORMAT(v.VentaFecha, '%Y-%m-%d %H:%i:%s') LIKE ?
+          OR TO_CHAR(v.VentaFecha, 'YYYY-MM-DD HH24:MI:SS') LIKE ?
           OR LOWER(CONCAT(COALESCE(c.ClienteNombre, ''), ' ', COALESCE(c.ClienteApellido, ''))) LIKE LOWER(?)
           OR LOWER(COALESCE(a.AlmacenNombre, '')) LIKE LOWER(?)
           OR v.VentaTipo = ?
@@ -424,7 +424,7 @@ const Venta = {
           ) vcp_sum ON vcp_sum.VentaCreditoId = vc.VentaCreditoId
           WHERE (
             CAST(v.VentaId AS CHAR) = ?
-            OR DATE_FORMAT(v.VentaFecha, '%Y-%m-%d %H:%i:%s') LIKE ?
+            OR TO_CHAR(v.VentaFecha, 'YYYY-MM-DD HH24:MI:SS') LIKE ?
             OR LOWER(CONCAT(COALESCE(c.ClienteNombre, ''), ' ', COALESCE(c.ClienteApellido, ''))) LIKE LOWER(?)
             OR LOWER(COALESCE(a.AlmacenNombre, '')) LIKE LOWER(?)
             OR v.VentaTipo = ?
