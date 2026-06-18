@@ -37,8 +37,11 @@ function extractVentaFilters(query) {
   const filters = {};
   if (query.tipo && allowedTipos.includes(query.tipo)) filters.tipo = query.tipo;
   if (query.almacenId) filters.almacenId = query.almacenId;
+  if (query.usuarioId) filters.usuarioId = query.usuarioId;
   if (query.fechaDesde) filters.fechaDesde = query.fechaDesde;
   if (query.fechaHasta) filters.fechaHasta = query.fechaHasta;
+  if (query.fechaDesdeHora) filters.fechaDesdeHora = query.fechaDesdeHora;
+  if (query.fechaHastaHora) filters.fechaHastaHora = query.fechaHastaHora;
   if (query.estado && allowedEstados.includes(query.estado))
     filters.estado = query.estado;
   if (query.documentoTipo && allowedDocumentos.includes(query.documentoTipo))

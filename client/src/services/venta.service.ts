@@ -55,8 +55,13 @@ export interface VentaFilters {
   tipo?: "CO" | "CR" | "PO" | "TR";
   documentoTipo?: "FA" | "NC";
   almacenId?: number | string;
+  usuarioId?: string;
   fechaDesde?: string;
   fechaHasta?: string;
+  // Rango con precisión de hora (formato "YYYY-MM-DD HH:MM:SS") para acotar
+  // exactamente un turno de caja entre su apertura y su cierre.
+  fechaDesdeHora?: string;
+  fechaHastaHora?: string;
   estado?: "P" | "C";
 }
 
@@ -68,8 +73,11 @@ const applyVentaFilters = (
   if (filters.tipo) params.tipo = filters.tipo;
   if (filters.documentoTipo) params.documentoTipo = filters.documentoTipo;
   if (filters.almacenId) params.almacenId = filters.almacenId;
+  if (filters.usuarioId) params.usuarioId = filters.usuarioId;
   if (filters.fechaDesde) params.fechaDesde = filters.fechaDesde;
   if (filters.fechaHasta) params.fechaHasta = filters.fechaHasta;
+  if (filters.fechaDesdeHora) params.fechaDesdeHora = filters.fechaDesdeHora;
+  if (filters.fechaHastaHora) params.fechaHastaHora = filters.fechaHastaHora;
   if (filters.estado) params.estado = filters.estado;
 };
 

@@ -26,6 +26,10 @@ function buildVentaFiltersWhere(filters = {}) {
     conditions.push("v.VentaDocumentoTipo = ?");
     params.push(filters.documentoTipo);
   }
+  if (filters.usuarioId) {
+    conditions.push("v.VentaUsuario = ?");
+    params.push(filters.usuarioId);
+  }
   if (filters.almacenId) {
     conditions.push("v.AlmacenId = ?");
     params.push(Number(filters.almacenId));
@@ -37,6 +41,16 @@ function buildVentaFiltersWhere(filters = {}) {
   if (filters.fechaHasta) {
     conditions.push("DATE(v.VentaFecha) <= ?");
     params.push(filters.fechaHasta);
+  }
+  // Rango con precisión de fecha y hora (para acotar exactamente un turno de
+  // caja entre la apertura y el cierre, no solo el día).
+  if (filters.fechaDesdeHora) {
+    conditions.push("v.VentaFecha >= ?");
+    params.push(filters.fechaDesdeHora);
+  }
+  if (filters.fechaHastaHora) {
+    conditions.push("v.VentaFecha <= ?");
+    params.push(filters.fechaHastaHora);
   }
   if (filters.estado === "P") {
     conditions.push(

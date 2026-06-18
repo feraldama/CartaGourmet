@@ -14,6 +14,7 @@ import { formatMiles } from "../../utils/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { loadPdf } from "../../utils/lazyPdf";
 import { getRegistrosDiariosCaja } from "../../services/registros.service";
+import { getVentasPaginated, type Venta } from "../../services/venta.service";
 
 import type { Caja } from "../../types";
 
@@ -25,6 +26,51 @@ interface RegistroDiarioCaja {
   RegistroDiarioCajaMonto: number;
   TipoGastoId: number;
   TipoGastoGrupoId: number;
+}
+
+// Estructura mínima de un documento jsPDF para emitir el PDF.
+type PdfDoc = { output: (type: "blob") => Blob };
+
+// Normaliza un timestamp del API a "YYYY-MM-DD HH:MM:SS" para comparar contra
+// la columna VentaFecha. Si el string ya viene sin zona horaria se respeta tal
+// cual; si trae zona (Z u offset) se convierte a la hora local del navegador.
+function toSqlDateTime(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(value);
+  if (m && !/([zZ]|[+-]\d{2}:?\d{2})$/.test(value)) {
+    const [, y, mo, d, hh, mm, ss = "00"] = m;
+    return `${y}-${mo}-${d} ${hh}:${mm}:${ss}`;
+  }
+  const dt = new Date(value);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(
+    dt.getHours()
+  )}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
+}
+
+// Descarga (y opcionalmente abre) un PDF generado en memoria.
+function descargarYAbrirPDF(doc: PdfDoc, filename: string, abrir = false) {
+  const pdfBlob = doc.output("blob");
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+
+  const link = document.createElement("a");
+  link.href = pdfUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  if (abrir) {
+    setTimeout(() => {
+      const openLink = document.createElement("a");
+      openLink.href = pdfUrl;
+      openLink.target = "_blank";
+      document.body.appendChild(openLink);
+      openLink.click();
+      document.body.removeChild(openLink);
+    }, 500);
+  }
+
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 2000);
 }
 
 export default function AperturaCierreCajaPage() {
@@ -308,32 +354,144 @@ export default function AperturaCierreCajaPage() {
     y += 12;
     doc.text("--GRACIAS POR SU PREFERENCIA--", 10, y);
 
-    // Generar el PDF y abrirlo automáticamente
-    const pdfBlob = doc.output("blob");
-    const pdfUrl = URL.createObjectURL(pdfBlob);
+    // Resumen de caja: descargar y abrir automáticamente.
+    descargarYAbrirPDF(
+      doc,
+      `ResumenCierreCaja_${fecha.replace(/\//g, "-")}.pdf`,
+      true
+    );
 
-    // Crear un enlace temporal para descargar el PDF
-    const link = document.createElement("a");
-    link.href = pdfUrl;
-    link.download = `ResumenCierreCaja_${fecha.replace(/\//g, "-")}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Además del resumen de caja, emitir un ticket de detalle por cada tipo de
+    // comprobante (Facturas y Notas de Crédito) emitido durante el turno,
+    // acotado por usuario y por el rango horario [apertura, cierre]. Se aísla
+    // de errores para no afectar al resumen de caja ya emitido.
+    try {
+      await generarTicketsComprobantes(
+        toSqlDateTime(aperturaReg.RegistroDiarioCajaFecha),
+        toSqlDateTime(cierreReg.RegistroDiarioCajaFecha)
+      );
+    } catch (error) {
+      console.error("Error al generar los tickets de comprobantes:", error);
+    }
+  }
 
-    // Abrir el PDF automáticamente en una nueva pestaña
-    setTimeout(() => {
-      const openLink = document.createElement("a");
-      openLink.href = pdfUrl;
-      openLink.target = "_blank";
-      document.body.appendChild(openLink);
-      openLink.click();
-      document.body.removeChild(openLink);
-    }, 500);
+  // Genera los dos tickets de detalle del turno: uno con las Facturas y otro
+  // con las Notas de Crédito emitidas entre la apertura y el cierre.
+  async function generarTicketsComprobantes(desde: string, hasta: string) {
+    await generarTicketComprobante("FA", "FACTURAS - CIERRE", desde, hasta);
+    await generarTicketComprobante(
+      "NC",
+      "NOTAS DE CRÉDITO - CIERRE",
+      desde,
+      hasta
+    );
+  }
 
-    // Limpiar la URL del objeto después de un tiempo
-    setTimeout(() => {
-      URL.revokeObjectURL(pdfUrl);
-    }, 2000);
+  // Genera un ticket de detalle (formato térmico 80mm) listando cada
+  // comprobante del tipo indicado emitido por el usuario durante el turno.
+  async function generarTicketComprobante(
+    tipo: "FA" | "NC",
+    titulo: string,
+    desde: string,
+    hasta: string
+  ) {
+    if (!user || !cajaId) return;
+
+    const cajaDescripcion =
+      cajas.find((c) => c.CajaId == cajaId)?.CajaDescripcion || "";
+    const fecha = new Date().toLocaleDateString();
+    const hora = new Date().toLocaleTimeString();
+
+    let ventas: Venta[] = [];
+    try {
+      const res = await getVentasPaginated(1, 1000, "VentaId", "asc", {
+        documentoTipo: tipo,
+        usuarioId: user.id,
+        fechaDesdeHora: desde,
+        fechaHastaHora: hasta,
+      });
+      ventas = res.data || [];
+    } catch (error) {
+      console.error(`Error al cargar comprobantes ${tipo}:`, error);
+      Swal.fire({
+        icon: "warning",
+        title: `No se pudo generar el ticket de ${
+          tipo === "NC" ? "Notas de Crédito" : "Facturas"
+        }`,
+        text: "No se pudieron cargar los comprobantes del turno.",
+        confirmButtonColor: "#2563eb",
+      });
+      return;
+    }
+
+    // El LEFT JOIN a ventacredito en el backend puede duplicar filas; se deja
+    // una sola por venta.
+    const vistos = new Set<number>();
+    ventas = ventas.filter((v) => {
+      if (vistos.has(v.VentaId)) return false;
+      vistos.add(v.VentaId);
+      return true;
+    });
+
+    // Alto dinámico (rollo continuo): cabecera + una línea por comprobante + pie.
+    const lineH = 6;
+    const alto = Math.max(120, 70 + ventas.length * lineH + 30);
+
+    const { jsPDF } = await loadPdf();
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: [80, alto],
+    });
+
+    doc.setFontSize(13);
+    doc.text(titulo, 40, 12, { align: "center" });
+    doc.setFontSize(9);
+    doc.text(`Fecha: ${fecha} ${hora}`, 6, 22);
+    doc.text(`Usuario: ${user.nombre}`, 6, 28);
+    doc.text(`Caja: ${cajaDescripcion}`, 6, 34);
+    doc.line(6, 38, 74, 38);
+
+    let y = 44;
+    doc.text("N°", 6, y);
+    doc.text("Cliente", 20, y);
+    doc.text("Total", 74, y, { align: "right" });
+    y += 3;
+    doc.line(6, y, 74, y);
+    y += 5;
+
+    let total = 0;
+    if (ventas.length === 0) {
+      doc.text("Sin comprobantes en el turno", 6, y);
+      y += lineH;
+    } else {
+      for (const v of ventas) {
+        const cliente =
+          `${v.ClienteNombre || ""} ${v.ClienteApellido || ""}`.trim() || "-";
+        const clienteCorto =
+          cliente.length > 18 ? cliente.slice(0, 17) + "…" : cliente;
+        doc.text(String(v.VentaNroFactura ?? v.VentaId), 6, y);
+        doc.text(clienteCorto, 20, y);
+        doc.text(formatMiles(v.Total), 74, y, { align: "right" });
+        total += Number(v.Total) || 0;
+        y += lineH;
+      }
+    }
+
+    doc.line(6, y, 74, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(`Cantidad: ${ventas.length}`, 6, y);
+    y += 6;
+    doc.text(`Total: Gs. ${formatMiles(total)}`, 6, y);
+    y += 10;
+    doc.setFontSize(9);
+    doc.text("--GRACIAS POR SU PREFERENCIA--", 6, y);
+
+    const nombreArchivo = `${
+      tipo === "NC" ? "NotasCredito" : "Facturas"
+    }_Cierre_${fecha.replace(/\//g, "-")}.pdf`;
+    descargarYAbrirPDF(doc, nombreArchivo, false);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -466,7 +624,7 @@ export default function AperturaCierreCajaPage() {
       {success && tipo === "1" && descargarPDF && (
         <div className="flex justify-center mt-4">
           <ActionButton
-            label="Descargar Resumen PDF"
+            label="Descargar Tickets de Cierre"
             onClick={() => generarResumenCierrePDF()}
           />
         </div>
