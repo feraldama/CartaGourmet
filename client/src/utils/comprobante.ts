@@ -195,24 +195,22 @@ const generarHoja = (
   const comprobanteIndividual = `
     <div class="factura">
       <div class="cliente-info">
-        <div class="cliente-left">
-          <p style="margin-left: 295px;">
-            <span>${formatearFecha(venta.VentaFecha)}</span>
-            <span style="margin-left: 202px;">Contado</span>
-          </p>
-          <p style="margin-left: 320px;">${
-            venta.ClienteRazonSocial || "N/A"
-          }</p>
-          <p style="margin-left: 280px;">
-            <span>${venta.ClienteRUC || "N/A"}</span>
-            <span style="margin-left: 75px;">${
-              venta.ClienteTelefono || ""
-            }</span>
-          </p>
-          <p style="margin-left: 300px; margin-bottom: 15px;">${
-            venta.ClienteDireccion || "Sin dirección registrada"
-          }</p>
-        </div>
+        <!-- Columna IZQUIERDA: fecha, razón social, dirección -->
+        <span class="campo campo-fecha">${formatearFecha(
+          venta.VentaFecha
+        )}</span>
+        <span class="campo campo-razon">${
+          venta.ClienteRazonSocial || "N/A"
+        }</span>
+        <span class="campo campo-direccion">${
+          venta.ClienteDireccion || "Sin dirección registrada"
+        }</span>
+        <!-- Columna DERECHA: Contado (X), RUC, teléfono -->
+        <span class="campo campo-contado">X</span>
+        <span class="campo campo-ruc">${venta.ClienteRUC || "N/A"}</span>
+        <span class="campo campo-telefono">${
+          venta.ClienteTelefono || ""
+        }</span>
       </div>
 
       <div class="productos-lista">
@@ -229,8 +227,8 @@ const generarHoja = (
             <span class="col-precio">${formatearNumero(
               p.VentaProductoPrecioConRecargo || p.VentaProductoPrecio || 0
             )}</span>
-            <span class="col-exentas">0</span>
-            <span class="col-iva5">0</span>
+            <span class="col-exentas"></span>
+            <span class="col-iva5"></span>
             <span style="margin-right: 30px;" class="col-iva10">${formatearNumero(
               p.VentaProductoPrecioTotalConRecargo ||
                 p.VentaProductoPrecioTotal ||
@@ -256,27 +254,26 @@ const generarHoja = (
         ).join("")}
       </div>
 
-      <div class="totales" style="margin-top: -9px;">
+      <div class="totales" style="margin-top: var(--totales-top);">
         <div class="totales-left">
           <p style="display: flex; justify-content: flex-end;">
-            <span style="margin-right: 30px;" class="subtotal">${formatearNumero(
+            <span style="margin-right: var(--monto-right);" class="subtotal">${formatearNumero(
               totalReal
             )}</span>
           </p>
           <p style="display: flex; justify-content: space-between;">
-            <span style="margin-left: 80px;" class="total-letras">${numeroALetras(
+            <span style="margin-left: var(--letras-left);" class="total-letras">${numeroALetras(
               totalReal
             )}</span>
-            <span style="margin-right: 30px;" class="subtotal">${formatearNumero(
+            <span style="margin-right: var(--monto-right);" class="subtotal">${formatearNumero(
               totalReal
             )}</span>
           </p>
-          <p style="display: flex; justify-content: space-between; margin-top: -5px;">
-            <span style="margin-left: 110px;" class="liquidacion-iva">0</span>
-            <span style="margin-left: 0px;" class="liquidacion-iva">${formatearNumero(
+          <p style="display: flex; justify-content: space-between; margin-top: var(--iva-linea-top);">
+            <span style="margin-left: var(--iva10-left);" class="liquidacion-iva">${formatearNumero(
               ivaReal
             )}</span>
-            <span style="margin-right: 320px;" class="total-iva">${formatearNumero(
+            <span style="margin-right: var(--totiva-right);" class="total-iva">${formatearNumero(
               ivaReal
             )}</span>
           </p>
@@ -290,7 +287,7 @@ const generarHoja = (
   return `
     <div class="hoja">
       <div class="col">${comprobanteIndividual}</div>
-      <div class="col">${comprobanteIndividual}</div>
+      <div class="col col-right">${comprobanteIndividual}</div>
     </div>
   `;
 };
@@ -336,7 +333,7 @@ export const generarComprobanteHTML = (
           body { margin: 0; padding: 0; }
           .factura { page-break-after: avoid; }
           .hoja { page-break-after: avoid; }
-          @page { margin: 0; size: A4 landscape; }
+          @page { margin: 0; size: 330mm 216mm; } /* oficio apaisado (landscape) */
           body::before,
           body::after,
           *::before,
@@ -353,29 +350,58 @@ export const generarComprobanteHTML = (
            (794px) y se escala para entrar en su mitad. */
         .hoja { display: flex; flex-direction: row; align-items: flex-start; width: 100%; }
         .col { box-sizing: border-box; width: 50%; flex: 0 0 50%; overflow: hidden; }
-        /* --offset-top empuja todo el contenido hacia abajo para que caiga
-           DEBAJO del membrete preimpreso (logo + FACTURA + número). Subí o bajá
-           ese único valor para alinear el texto con los recuadros del formulario. */
-        .factura { --offset-top: 250px; box-sizing: border-box; width: 794px; transform: scale(0.68); transform-origin: top left; margin: 0; padding: var(--offset-top) 20px 20px 20px; }
+        /* La factura derecha arranca en el 50% de la hoja; este margen negativo la
+           trae hacia la izquierda para calzar sobre el segundo formulario preimpreso.
+           Más negativo = más a la izquierda. */
+        .col-right { margin-left: -28px; }
+        .factura {
+          /* --offset-top empuja TODO el contenido hacia abajo (debajo del membrete).
+             Las variables --col-* posicionan los datos del cliente sobre las casillas
+             del formulario preimpreso. Ajustá estos valores para alinear con tu papel. */
+          --offset-top: 243px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
+          --col-izq: 210px;         /* x de la razón social */
+          --col-izq-fecha: 185px;   /* x de la fecha */
+          --col-izq-dir: 177px;    /* x de la dirección */
+          --col-der: 590px;         /* x de RUC y teléfono */
+          --col-der-x: 755px;       /* x de la "X" de Contado */
+          --prod-left: 90px;        /* corrimiento de cantidad y descripción hacia la derecha */
+          --prod-top: 0px;          /* posición vertical de los productos (menor/negativo = más arriba) */
+          --totales-top: 320px;     /* separación de los totales (se mantienen en el pie) */
+          --monto-right: 40px;      /* margin-right del total en números (mayor = más a la izquierda) */
+          --letras-left: 210px;     /* margin-left del monto en letras (mayor = más a la derecha) */
+          --iva10-left: 295px;      /* margin-left del IVA 10 (mayor = más a la derecha) */
+          --totiva-right: 200px;    /* margin-right del Total IVA (menor = más a la derecha) */
+          --iva-linea-top: 15px;    /* separación vertical de la línea de IVAs (mayor = más abajo) */
+          /* Usamos zoom (no transform:scale) porque zoom SÍ reduce el espacio que el
+             elemento ocupa en el layout; así todo entra en una sola hoja oficio y los
+             totales pueden llegar al pie sin saltar a una segunda página. */
+          box-sizing: border-box; width: 794px; zoom: 0.68; margin: 0; padding: var(--offset-top) 20px 20px 20px;
+        }
         .header { text-align: center; margin-bottom: 20px; }
         .header h2 { margin: 0; font-size: 18px; }
 
-        .cliente-info { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .cliente-left { flex: 1; margin-right: 20px; }
-        .cliente-left p { margin: 2px 0; font-size: 11px; text-align: left; min-height: 15px; }
-        .cliente-right { flex: 0 0 auto; text-align: right; }
+        /* Datos del cliente posicionados de forma absoluta en dos columnas
+           (izquierda / derecha) para caer sobre las casillas del formulario. */
+        .cliente-info { position: relative; height: 100px; margin-bottom: 10px; }
+        .campo { position: absolute; font-size: 11px; text-align: left; white-space: nowrap; }
+        .campo-fecha     { left: var(--col-izq-fecha); top: 0; }
+        .campo-razon     { left: var(--col-izq);       top: 30px; }
+        .campo-direccion { left: var(--col-izq-dir);   top: 62px; }
+        .campo-contado   { left: var(--col-der-x); top: 0; font-weight: bold; }
+        .campo-ruc       { left: var(--col-der);   top: 30px; }
+        .campo-telefono  { left: var(--col-der);   top: 62px; }
         .factura-details p { margin: 2px 0; font-size: 10px; text-align: right; }
         .factura-series { font-size: 12px !important; margin: 5px 0 !important; }
         .factura-number { font-size: 16px !important; margin: 5px 0 !important; }
 
-        .productos-lista { margin-bottom: 2px; margin-top: 10px; }
+        .productos-lista { margin-bottom: 2px; margin-top: var(--prod-top); margin-left: var(--prod-left); }
         .productos-header { display: flex; font-weight: bold; font-size: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
         .producto-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; font-size: 10px; }
         .col-cantidad { width: 60px; text-align: center; font-weight: bold; }
         .col-descripcion { flex: 1; text-align: left; margin: 0 10px; }
         .col-precio { width: 80px; text-align: right; margin-right: 10px; }
-        .col-exentas { width: 60px; text-align: center; }
-        .col-iva5 { width: 60px; text-align: center; }
+        .col-exentas { width: 25px; text-align: center; }
+        .col-iva5 { width: 25px; text-align: center; }
         .col-iva10 { width: 60px; text-align: center; }
 
         .totales { margin-top: 10px; padding-top: 5px; display: flex; justify-content: space-between; }
