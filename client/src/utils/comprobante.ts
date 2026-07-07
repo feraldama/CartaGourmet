@@ -205,8 +205,7 @@ const generarHoja = (
         <span class="campo campo-direccion">${
           venta.ClienteDireccion || "Sin dirección registrada"
         }</span>
-        <!-- Columna DERECHA: Contado (X), RUC, teléfono -->
-        <span class="campo campo-contado">X</span>
+        <!-- Columna DERECHA: RUC, teléfono (la X de Contado no se imprime por pedido del cliente) -->
         <span class="campo campo-ruc">${venta.ClienteRUC || "N/A"}</span>
         <span class="campo campo-telefono">${
           venta.ClienteTelefono || ""
