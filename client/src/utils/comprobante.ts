@@ -341,7 +341,9 @@ export const generarComprobanteHTML = (
           }
         }
 
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0; }
+        /* --doc-left corre TODO el documento (ambos comprobantes) hacia la derecha.
+           Mayor = más a la derecha. */
+        body { --doc-left: 30px; font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0 0 0 var(--doc-left); }
 
         /* Hoja horizontal: las 2 facturas (cliente + empresa) van una al lado de
            la otra. Cada columna ocupa la mitad del ancho de la hoja apaisada y
