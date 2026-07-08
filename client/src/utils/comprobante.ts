@@ -253,7 +253,7 @@ const generarHoja = (
         ).join("")}
       </div>
 
-      <div class="totales" style="margin-top: var(--totales-top);">
+      <div class="totales">
         <div class="totales-left">
           <p style="display: flex; justify-content: flex-end;">
             <span style="margin-right: var(--monto-right);" class="subtotal">${formatearNumero(
@@ -343,7 +343,7 @@ export const generarComprobanteHTML = (
 
         /* --doc-left corre TODO el documento (ambos comprobantes) hacia la derecha.
            Mayor = más a la derecha. */
-        body { --doc-left: 30px; font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0 0 0 var(--doc-left); }
+        body { --doc-left: 31px; font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0 0 0 var(--doc-left); }
 
         /* Hoja horizontal: las 2 facturas (cliente + empresa) van una al lado de
            la otra. Cada columna ocupa la mitad del ancho de la hoja apaisada y
@@ -359,7 +359,7 @@ export const generarComprobanteHTML = (
           /* --offset-top empuja TODO el contenido hacia abajo (debajo del membrete).
              Las variables --col-* posicionan los datos del cliente sobre las casillas
              del formulario preimpreso. Ajustá estos valores para alinear con tu papel. */
-          --offset-top: 243px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
+          --offset-top: 228px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
           --col-izq: 210px;         /* x de la razón social */
           --col-izq-fecha: 185px;   /* x de la fecha */
           --col-izq-dir: 177px;    /* x de la dirección */
@@ -367,7 +367,7 @@ export const generarComprobanteHTML = (
           --col-der-x: 755px;       /* x de la "X" de Contado */
           --prod-left: 90px;        /* corrimiento de cantidad y descripción hacia la derecha */
           --prod-top: 0px;          /* posición vertical de los productos (menor/negativo = más arriba) */
-          --totales-top: 320px;     /* separación de los totales (se mantienen en el pie) */
+          --totales-y: 862px;       /* posición FIJA de los totales desde arriba (no depende de la cantidad de productos) */
           --monto-right: 40px;      /* margin-right del total en números (mayor = más a la izquierda) */
           --letras-left: 210px;     /* margin-left del monto en letras (mayor = más a la derecha) */
           --iva10-left: 295px;      /* margin-left del IVA 10 (mayor = más a la derecha) */
@@ -376,7 +376,7 @@ export const generarComprobanteHTML = (
           /* Usamos zoom (no transform:scale) porque zoom SÍ reduce el espacio que el
              elemento ocupa en el layout; así todo entra en una sola hoja oficio y los
              totales pueden llegar al pie sin saltar a una segunda página. */
-          box-sizing: border-box; width: 794px; zoom: 0.68; margin: 0; padding: var(--offset-top) 20px 20px 20px;
+          box-sizing: border-box; width: 794px; min-height: 1000px; position: relative; zoom: 0.68; margin: 0; padding: var(--offset-top) 20px 20px 20px;
         }
         .header { text-align: center; margin-bottom: 20px; }
         .header h2 { margin: 0; font-size: 18px; }
@@ -405,7 +405,9 @@ export const generarComprobanteHTML = (
         .col-iva5 { width: 25px; text-align: center; }
         .col-iva10 { width: 60px; text-align: center; }
 
-        .totales { margin-top: 10px; padding-top: 5px; display: flex; justify-content: space-between; }
+        /* Totales anclados de forma ABSOLUTA a un punto fijo del formulario: quedan
+           siempre en la misma línea sin importar cuántos productos tenga la factura. */
+        .totales { position: absolute; top: var(--totales-y); left: 20px; right: 20px; padding-top: 5px; display: flex; justify-content: space-between; }
         .totales-left { flex: 1; }
         .totales-right { flex: 0 0 auto; text-align: right; }
 
