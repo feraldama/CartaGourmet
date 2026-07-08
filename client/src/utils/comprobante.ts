@@ -354,7 +354,7 @@ export const generarComprobanteHTML = (
         /* La factura derecha arranca en el 50% de la hoja; este margen negativo la
            trae hacia la izquierda para calzar sobre el segundo formulario preimpreso.
            Más negativo = más a la izquierda. */
-        .col-right { margin-left: -28px; }
+        .col-right { margin-left: -24px; }
         .factura {
           /* --offset-top empuja TODO el contenido hacia abajo (debajo del membrete).
              Las variables --col-* posicionan los datos del cliente sobre las casillas
@@ -384,7 +384,7 @@ export const generarComprobanteHTML = (
         /* Datos del cliente posicionados de forma absoluta en dos columnas
            (izquierda / derecha) para caer sobre las casillas del formulario. */
         .cliente-info { position: relative; height: 100px; margin-bottom: 10px; }
-        .campo { position: absolute; font-size: 11px; text-align: left; white-space: nowrap; }
+        .campo { position: absolute; font-size: 13px; text-align: left; white-space: nowrap; }
         .campo-fecha     { left: var(--col-izq-fecha); top: 0; }
         .campo-razon     { left: var(--col-izq);       top: 30px; }
         .campo-direccion { left: var(--col-izq-dir);   top: 62px; }
@@ -397,9 +397,11 @@ export const generarComprobanteHTML = (
 
         .productos-lista { margin-bottom: 2px; margin-top: var(--prod-top); margin-left: var(--prod-left); }
         .productos-header { display: flex; font-weight: bold; font-size: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
-        .producto-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; font-size: 10px; }
+        /* Letra de productos más grande (12px) pero con line-height fijo (12px) para
+           que el paso entre filas siga siendo ~14px y no se desacomoden hacia abajo. */
+        .producto-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; font-size: 12px; line-height: 12px; }
         .col-cantidad { width: 60px; text-align: center; font-weight: bold; }
-        .col-descripcion { flex: 1; text-align: left; margin: 0 10px; }
+        .col-descripcion { flex: 1; text-align: left; margin: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .col-precio { width: 80px; text-align: right; margin-right: 10px; }
         .col-exentas { width: 25px; text-align: center; }
         .col-iva5 { width: 25px; text-align: center; }
@@ -411,10 +413,10 @@ export const generarComprobanteHTML = (
         .totales-left { flex: 1; }
         .totales-right { flex: 0 0 auto; text-align: right; }
 
-        .total-letras { font-size: 11px; font-weight: bold; margin-bottom: 0; text-transform: uppercase; line-height: 1; }
-        .liquidacion-iva { font-size: 11px; margin: 0; min-height: 8px; line-height: 1; }
-        .subtotal { text-align: right; font-weight: bold; margin: 0; font-size: 12px; line-height: 1; }
-        .total-iva { text-align: right; margin: 0; font-size: 11px; font-weight: bold; line-height: 1; }
+        .total-letras { font-size: 13px; font-weight: bold; margin-bottom: 0; text-transform: uppercase; line-height: 1; }
+        .liquidacion-iva { font-size: 13px; margin: 0; min-height: 8px; line-height: 1; }
+        .subtotal { text-align: right; font-weight: bold; margin: 0; font-size: 14px; line-height: 1; }
+        .total-iva { text-align: right; margin: 0; font-size: 13px; font-weight: bold; line-height: 1; }
       </style>
     </head>
     <body>
