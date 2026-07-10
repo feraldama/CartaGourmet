@@ -29,6 +29,7 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
     nombre: "",
     apellido: "",
     telefono: "",
+    direccion: "",
   });
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -44,7 +45,10 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
           .includes(filtros.apellido.toLowerCase()) &&
         (c.ClienteTelefono || "")
           ?.toLowerCase()
-          .includes(filtros.telefono.toLowerCase()),
+          .includes(filtros.telefono.toLowerCase()) &&
+        (c.ClienteDireccion || "")
+          ?.toLowerCase()
+          .includes(filtros.direccion.toLowerCase()),
     );
   }, [clientes, filtros]);
 
@@ -119,6 +123,15 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
                 setFiltros((f) => ({ ...f, telefono: e.target.value }))
               }
             />
+            <TextInput
+              label="Dirección"
+              size="sm"
+              placeholder="Buscar"
+              value={filtros.direccion}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, direccion: e.target.value }))
+              }
+            />
           </div>
         </div>
         <div className="overflow-auto rounded-md border border-border flex-1 min-h-0">
@@ -129,13 +142,14 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
                 <th className="py-2 px-4 text-left font-medium">Nombre</th>
                 <th className="py-2 px-4 text-left font-medium">Apellido</th>
                 <th className="py-2 px-4 text-left font-medium">Teléfono</th>
+                <th className="py-2 px-4 text-left font-medium">Dirección</th>
                 <th className="py-2 px-4 text-left font-medium">Tipo</th>
               </tr>
             </thead>
             <tbody>
               {paginatedClientes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-4 text-text-subtle">
+                  <td colSpan={6} className="text-center py-4 text-text-subtle">
                     No hay clientes
                   </td>
                 </tr>
@@ -154,6 +168,7 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
                   <td className="py-2 px-4 font-num">
                     {c.ClienteTelefono || ""}
                   </td>
+                  <td className="py-2 px-4">{c.ClienteDireccion || ""}</td>
                   <td className="py-2 px-4">
                     {c.ClienteTipo === "MI" ? (
                       <Badge tone="neutral">Minorista</Badge>

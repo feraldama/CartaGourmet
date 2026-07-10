@@ -89,7 +89,7 @@ const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
               ...venta,
               ClienteRazonSocial:
                 cliente.ClienteRazonSocial ||
-                `${cliente.ClienteNombre} ${cliente.ClienteApellido}`.trim(),
+                (cliente.ClienteNombre || "").trim(),
               ClienteRUC: cliente.ClienteRUC || "",
               ClienteTelefono: cliente.ClienteTelefono || "",
               ClienteDireccion: cliente.ClienteDireccion || "",
