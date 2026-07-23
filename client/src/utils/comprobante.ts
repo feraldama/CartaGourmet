@@ -354,29 +354,29 @@ export const generarComprobanteHTML = (
         /* La factura derecha arranca en el 50% de la hoja; este margen negativo la
            trae hacia la izquierda para calzar sobre el segundo formulario preimpreso.
            Más negativo = más a la izquierda. */
-        .col-right { margin-left: -24px; }
+        .col-right { margin-left: -54px; }
         .factura {
           /* --offset-top empuja TODO el contenido hacia abajo (debajo del membrete).
              Las variables --col-* posicionan los datos del cliente sobre las casillas
              del formulario preimpreso. Ajustá estos valores para alinear con tu papel. */
-          --offset-top: 228px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
-          --col-izq: 210px;         /* x de la razón social */
-          --col-izq-fecha: 185px;   /* x de la fecha */
+          --offset-top: 275px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
+          --col-izq: 220px;         /* x de la razón social */
+          --col-izq-fecha: 195px;   /* x de la fecha */
           --col-izq-dir: 177px;    /* x de la dirección */
-          --col-der: 590px;         /* x de RUC y teléfono */
+          --col-der: 615px;         /* x de RUC y teléfono */
           --col-der-x: 755px;       /* x de la "X" de Contado */
-          --prod-left: 90px;        /* corrimiento de cantidad y descripción hacia la derecha */
-          --prod-top: 0px;          /* posición vertical de los productos (menor/negativo = más arriba) */
-          --totales-y: 862px;       /* posición FIJA de los totales desde arriba (no depende de la cantidad de productos) */
-          --monto-right: 40px;      /* margin-right del total en números (mayor = más a la izquierda) */
-          --letras-left: 210px;     /* margin-left del monto en letras (mayor = más a la derecha) */
-          --iva10-left: 295px;      /* margin-left del IVA 10 (mayor = más a la derecha) */
+          --prod-left: 20px;        /* corrimiento de cantidad y descripción hacia la derecha */
+          --prod-top: 42px;         /* posición vertical de los productos (menor/negativo = más arriba) */
+          --totales-y: 1020px;      /* posición FIJA de los totales desde arriba (no depende de la cantidad de productos) */
+          --monto-right: 25px;      /* margin-right del total en números (mayor = más a la izquierda) */
+          --letras-left: 150px;     /* margin-left del monto en letras (mayor = más a la derecha) */
+          --iva10-left: 215px;      /* margin-left del IVA 10 (mayor = más a la derecha) */
           --totiva-right: 200px;    /* margin-right del Total IVA (menor = más a la derecha) */
           --iva-linea-top: 15px;    /* separación vertical de la línea de IVAs (mayor = más abajo) */
           /* Usamos zoom (no transform:scale) porque zoom SÍ reduce el espacio que el
              elemento ocupa en el layout; así todo entra en una sola hoja oficio y los
              totales pueden llegar al pie sin saltar a una segunda página. */
-          box-sizing: border-box; width: 794px; min-height: 1000px; position: relative; zoom: 0.68; margin: 0; padding: var(--offset-top) 20px 20px 20px;
+          box-sizing: border-box; width: 794px; min-height: 1150px; position: relative; zoom: 0.68; margin: 0; padding: var(--offset-top) 20px 20px 20px;
         }
         .header { text-align: center; margin-bottom: 20px; }
         .header h2 { margin: 0; font-size: 18px; }
