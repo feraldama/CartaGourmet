@@ -343,7 +343,7 @@ export const generarComprobanteHTML = (
 
         /* --doc-left corre TODO el documento (ambos comprobantes) hacia la derecha.
            Mayor = más a la derecha. */
-        body { --doc-left: 31px; font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0 0 0 var(--doc-left); }
+        body { --doc-left: 118px; font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0 0 0 var(--doc-left); }
 
         /* Hoja horizontal: las 2 facturas (cliente + empresa) van una al lado de
            la otra. Cada columna ocupa la mitad del ancho de la hoja apaisada y
@@ -354,21 +354,21 @@ export const generarComprobanteHTML = (
         /* La factura derecha arranca en el 50% de la hoja; este margen negativo la
            trae hacia la izquierda para calzar sobre el segundo formulario preimpreso.
            Más negativo = más a la izquierda. */
-        .col-right { margin-left: -54px; }
+        .col-right { margin-left: -14px; }
         .factura {
           /* --offset-top empuja TODO el contenido hacia abajo (debajo del membrete).
              Las variables --col-* posicionan los datos del cliente sobre las casillas
              del formulario preimpreso. Ajustá estos valores para alinear con tu papel. */
           --offset-top: 275px;      /* baja cabecera y productos bajo el membrete (mayor = más abajo) */
-          --col-izq: 220px;         /* x de la razón social */
-          --col-izq-fecha: 195px;   /* x de la fecha */
-          --col-izq-dir: 177px;    /* x de la dirección */
-          --col-der: 615px;         /* x de RUC y teléfono */
+          --col-izq: 175px;         /* x de la razón social */
+          --col-izq-fecha: 168px;   /* x de la fecha */
+          --col-izq-dir: 171px;    /* x de la dirección */
+          --col-der: 600px;         /* x de RUC y teléfono */
           --col-der-x: 755px;       /* x de la "X" de Contado */
           --prod-left: 20px;        /* corrimiento de cantidad y descripción hacia la derecha */
           --prod-top: 42px;         /* posición vertical de los productos (menor/negativo = más arriba) */
-          --totales-y: 1020px;      /* posición FIJA de los totales desde arriba (no depende de la cantidad de productos) */
-          --monto-right: 25px;      /* margin-right del total en números (mayor = más a la izquierda) */
+          --totales-y: 1018px;      /* posición FIJA de los totales desde arriba (no depende de la cantidad de productos) */
+          --monto-right: 21px;      /* margin-right del total en números (mayor = más a la izquierda) */
           --letras-left: 150px;     /* margin-left del monto en letras (mayor = más a la derecha) */
           --iva10-left: 215px;      /* margin-left del IVA 10 (mayor = más a la derecha) */
           --totiva-right: 200px;    /* margin-right del Total IVA (menor = más a la derecha) */
