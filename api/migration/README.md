@@ -64,3 +64,18 @@ con las ventas de un rango de fechas. El establecimiento y punto de expedición
 del número de comprobante (`###-###-#######`) y las marcas de imputación se
 configuran por entorno: `RG90_ESTABLECIMIENTO`, `RG90_PUNTO`, `RG90_IMPUTA_IVA`,
 `RG90_IMPUTA_IRE`, `RG90_IMPUTA_IRP` (ver `api/config/rg90.js`).
+
+También existe `GET /api/venta/reporte-rg90-csv`: mismas filas en el CSV de
+importación a Marangatu, comprimido como `<RUC>_REG_MMAAAA_V0001.zip` (requiere
+`RG90_RUC` en el entorno; el período es el mes de `fechaDesde`).
+
+### `2026-09-01-cliente-documento-tipo.sql` — Tipo de documento del cliente (RUC / CI)
+
+Agrega:
+
+- `clientes.ClienteDocumentoTipo` (`CHAR(2)`, default `'RU'`): indica si el valor
+  de `ClienteRUC` es un RUC (`'RU'`) o una Cédula de Identidad (`'CI'`). El
+  registro RG 90 los informa con códigos distintos (11 vs 12) y Marangatu valida
+  los RUC contra su padrón. Backfill de los existentes a `'RU'`.
+
+El campo se edita en el formulario de Clientes.

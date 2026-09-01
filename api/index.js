@@ -54,6 +54,8 @@ const corsOptions = {
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  // Permite al frontend leer el nombre de archivo de las descargas (RG 90).
+  exposedHeaders: ["Content-Disposition"],
   credentials: true,
   maxAge: 86400, // 24 horas
 };

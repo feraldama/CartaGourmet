@@ -172,8 +172,9 @@ const Cliente = {
           ClienteDireccion,
           ClienteTelefono,
           ClienteTipo,
+          ClienteDocumentoTipo,
           UsuarioId
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       const values = [
         clienteData.ClienteRUC || "",
@@ -182,6 +183,7 @@ const Cliente = {
         clienteData.ClienteDireccion || "",
         clienteData.ClienteTelefono || "",
         clienteData.ClienteTipo || "",
+        clienteData.ClienteDocumentoTipo === "CI" ? "CI" : "RU",
         clienteData.UsuarioId ? String(clienteData.UsuarioId).trim() : "",
       ];
       db.query(query, values, (err, result) => {
@@ -202,6 +204,7 @@ const Cliente = {
         "ClienteDireccion",
         "ClienteTelefono",
         "ClienteTipo",
+        "ClienteDocumentoTipo",
         "UsuarioId",
       ];
       camposActualizables.forEach((campo) => {

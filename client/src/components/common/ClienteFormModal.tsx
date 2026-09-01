@@ -12,6 +12,9 @@ export interface Cliente {
   ClienteDireccion: string;
   ClienteTelefono: string;
   ClienteTipo: string;
+  // 'RU' (RUC) o 'CI' (cédula): qué documento contiene ClienteRUC. La RG 90
+  // los informa con códigos distintos.
+  ClienteDocumentoTipo?: string;
   UsuarioId: string;
   [key: string]: unknown;
 }
@@ -38,6 +41,7 @@ export default function ClienteFormModal({
     ClienteDireccion: "",
     ClienteTelefono: "",
     ClienteTipo: "MI",
+    ClienteDocumentoTipo: "RU",
     UsuarioId: "",
   });
 
@@ -45,7 +49,11 @@ export default function ClienteFormModal({
 
   useEffect(() => {
     if (currentCliente) {
-      setFormData({ ...currentCliente });
+      setFormData({
+        ...currentCliente,
+        ClienteDocumentoTipo:
+          currentCliente.ClienteDocumentoTipo === "CI" ? "CI" : "RU",
+      });
     } else {
       const userId = currentUserId || (user?.id ? String(user.id).trim() : "");
       setFormData({
@@ -55,6 +63,7 @@ export default function ClienteFormModal({
         ClienteDireccion: "",
         ClienteTelefono: "",
         ClienteTipo: "MI",
+        ClienteDocumentoTipo: "RU",
         UsuarioId: userId,
       });
     }
@@ -107,16 +116,28 @@ export default function ClienteFormModal({
                   htmlFor="ClienteRUC"
                   className="block mb-2 text-sm font-medium text-text"
                 >
-                  RUC
+                  {formData.ClienteDocumentoTipo === "CI" ? "Cédula" : "RUC"}
                 </label>
-                <input
-                  type="text"
-                  name="ClienteRUC"
-                  id="ClienteRUC"
-                  value={formData.ClienteRUC}
-                  onChange={handleInputChange}
-                  className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
-                />
+                <div className="flex gap-2">
+                  <select
+                    name="ClienteDocumentoTipo"
+                    id="ClienteDocumentoTipo"
+                    value={formData.ClienteDocumentoTipo || "RU"}
+                    onChange={handleInputChange}
+                    className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 p-2.5"
+                  >
+                    <option value="RU">RUC</option>
+                    <option value="CI">CI</option>
+                  </select>
+                  <input
+                    type="text"
+                    name="ClienteRUC"
+                    id="ClienteRUC"
+                    value={formData.ClienteRUC}
+                    onChange={handleInputChange}
+                    className="bg-surface-muted border border-border text-text text-sm rounded-lg focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 block w-full p-2.5"
+                  />
+                </div>
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <label

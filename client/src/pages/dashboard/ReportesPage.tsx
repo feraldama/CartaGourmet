@@ -15,7 +15,10 @@ import {
   getRegistrosDiariosCajaPorRango,
   type RegistroDiarioCajaRow,
 } from "../../services/registros.service";
-import { descargarLibroVentasRG90 } from "../../services/venta.service";
+import {
+  descargarLibroVentasRG90,
+  descargarCsvVentasRG90,
+} from "../../services/venta.service";
 
 interface DeudaCliente {
   ClienteId: number;
@@ -1315,8 +1318,9 @@ const ReportesPage: React.FC = () => {
   };
 
   // Metadata de las tarjetas (para grid + abrir modal)
-  // Descarga la planilla oficial RG 90 (hoja VENTAS) con las ventas del rango.
-  const handleGenerarLibroRG90 = async () => {
+  // Descarga el libro de ventas RG 90: planilla Excel oficial o CSV listo
+  // para importar a Marangatu, según el formato elegido.
+  const handleGenerarLibroRG90 = async (formato: "xlsx" | "csv") => {
     if (!fechaDesdeRG90 || !fechaHastaRG90) {
       setError("Seleccioná el rango de fechas");
       return;
@@ -1328,7 +1332,11 @@ const ReportesPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await descargarLibroVentasRG90(fechaDesdeRG90, fechaHastaRG90);
+      if (formato === "csv") {
+        await descargarCsvVentasRG90(fechaDesdeRG90, fechaHastaRG90);
+      } else {
+        await descargarLibroVentasRG90(fechaDesdeRG90, fechaHastaRG90);
+      }
       setReporteActivo(null);
     } catch (err) {
       const e = err as { message?: string };
@@ -1869,9 +1877,11 @@ const ReportesPage: React.FC = () => {
             {reporteActivo === "rg90" && (
               <div className="space-y-4">
                 <p className="text-xs text-slate-500">
-                  Genera la planilla oficial del registro de comprobantes
-                  (RG 90) con la hoja VENTAS cargada con las ventas del período
-                  seleccionado.
+                  Genera el registro de comprobantes de ventas (RG 90) del
+                  período: la planilla Excel oficial, o el CSV comprimido listo
+                  para importar a Marangatu. Para Marangatu el período debe ser
+                  un mes calendario (el archivo se nombra con el mes de la
+                  fecha "Desde").
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -1899,13 +1909,22 @@ const ReportesPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <button
-                  onClick={handleGenerarLibroRG90}
-                  disabled={loading}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
-                >
-                  {loading ? "Generando…" : "Descargar Excel"}
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleGenerarLibroRG90("xlsx")}
+                    disabled={loading}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                  >
+                    {loading ? "Generando…" : "Descargar Excel"}
+                  </button>
+                  <button
+                    onClick={() => handleGenerarLibroRG90("csv")}
+                    disabled={loading}
+                    className="bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                  >
+                    {loading ? "Generando…" : "CSV para Marangatu"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

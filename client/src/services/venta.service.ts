@@ -273,7 +273,9 @@ export interface ConfirmarVentaPayload {
   UsuarioId: string;
   VentaPagoTipo: string;
   VentaDocumentoTipo?: "FA" | "NC";
-  /** NC: número de la factura que la nota de crédito afecta (requerido por RG 90). */
+  /** NC: VentaId de la factura que la nota de crédito afecta (requerido por RG 90). */
+  VentaIdAsociada?: number;
+  /** NC: alternativa por número de comprobante (respaldo si no se usa el buscador). */
   VentaNroFacturaAsociada?: number;
   VentaNroFactura?: number;
   VentaTimbrado?: number;
@@ -300,21 +302,23 @@ export const confirmarVenta = async (payload: ConfirmarVentaPayload) => {
   }
 };
 
-// Descarga el libro de ventas RG 90 (planilla oficial de la SET) del rango de
-// fechas como archivo .xlsx y dispara el guardado en el navegador.
-export const descargarLibroVentasRG90 = async (
-  fechaDesde: string,
-  fechaHasta: string
+// Descarga un endpoint que responde archivo (blob) y dispara el guardado en el
+// navegador. El nombre sale del Content-Disposition si el server lo expone.
+const descargarArchivo = async (
+  endpoint: string,
+  params: Record<string, string>,
+  fallbackFilename: string,
+  errorGenerico: string
 ) => {
   try {
-    const response = await api.get("/venta/reporte-rg90", {
-      params: { fechaDesde, fechaHasta },
-      responseType: "blob",
-    });
+    const response = await api.get(endpoint, { params, responseType: "blob" });
+    const disposition = String(response.headers["content-disposition"] || "");
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match ? match[1] : fallbackFilename;
     const url = URL.createObjectURL(response.data as Blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `libro-ventas-rg90_${fechaDesde}_${fechaHasta}.xlsx`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -322,7 +326,7 @@ export const descargarLibroVentasRG90 = async (
   } catch (error) {
     // El error viene como Blob por el responseType; se intenta leer el mensaje.
     const axiosError = error as AxiosError<Blob>;
-    let message = "Error al generar el libro de ventas RG 90";
+    let message = errorGenerico;
     if (axiosError.response?.data instanceof Blob) {
       try {
         const parsed = JSON.parse(await axiosError.response.data.text());
@@ -332,6 +336,58 @@ export const descargarLibroVentasRG90 = async (
       }
     }
     throw { message };
+  }
+};
+
+// Libro de ventas RG 90 (planilla oficial de la SET) como .xlsx.
+export const descargarLibroVentasRG90 = (
+  fechaDesde: string,
+  fechaHasta: string
+) =>
+  descargarArchivo(
+    "/venta/reporte-rg90",
+    { fechaDesde, fechaHasta },
+    `libro-ventas-rg90_${fechaDesde}_${fechaHasta}.xlsx`,
+    "Error al generar el libro de ventas RG 90"
+  );
+
+// CSV de importación a Marangatu (ZIP <RUC>_REG_MMAAAA_V0001.zip).
+export const descargarCsvVentasRG90 = (
+  fechaDesde: string,
+  fechaHasta: string
+) =>
+  descargarArchivo(
+    "/venta/reporte-rg90-csv",
+    { fechaDesde, fechaHasta },
+    `rg90-ventas_${fechaDesde}_${fechaHasta}.zip`,
+    "Error al generar el CSV de Marangatu"
+  );
+
+// Factura emitida candidata a asociarse a una Nota de Crédito.
+export interface FacturaParaNC {
+  VentaId: number;
+  VentaNroFactura: number;
+  VentaTimbrado: number;
+  NroComprobante: string;
+  VentaFecha: string;
+  Total: number;
+  Cliente: string;
+}
+
+// Busca facturas emitidas (por número o cliente) para asociar a una NC.
+export const buscarFacturasParaNC = async (
+  term: string
+): Promise<FacturaParaNC[]> => {
+  try {
+    const response = await api.get("/venta/facturas-para-nc", {
+      params: { term },
+    });
+    return response.data?.data || [];
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw (
+      axiosError.response?.data || { message: "Error al buscar facturas" }
+    );
   }
 };
 

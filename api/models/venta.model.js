@@ -559,6 +559,7 @@ const Venta = {
           c.ClienteRUC,
           c.ClienteNombre,
           c.ClienteApellido,
+          c.ClienteDocumentoTipo,
           va.VentaNroFactura AS NroFacturaAsociada,
           va.VentaTimbrado AS TimbradoAsociado,
           COALESCE(iva.gravado10, 0) AS Gravado10,
@@ -582,6 +583,37 @@ const Venta = {
       `;
 
       db.query(query, [fechaDesde, fechaHasta], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+  },
+
+  // Facturas emitidas (FA) para asociar a una Nota de Crédito: busca por
+  // número de comprobante o nombre del cliente, las más recientes primero.
+  buscarFacturasEmitidas: (term, limit = 10) => {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT
+          v.VentaId,
+          v.VentaNroFactura,
+          v.VentaTimbrado,
+          v.VentaFecha,
+          v.Total,
+          c.ClienteNombre,
+          c.ClienteApellido
+        FROM venta v
+        LEFT JOIN clientes c ON c.ClienteId = v.ClienteId
+        WHERE v.VentaDocumentoTipo = 'FA'
+          AND (
+            CAST(v.VentaNroFactura AS CHAR) LIKE ?
+            OR LOWER(CONCAT(COALESCE(c.ClienteNombre, ''), ' ', COALESCE(c.ClienteApellido, ''))) LIKE LOWER(?)
+          )
+        ORDER BY v.VentaId DESC
+        LIMIT ?
+      `;
+      const likeValue = `%${String(term).trim()}%`;
+      db.query(query, [likeValue, likeValue, limit], (err, results) => {
         if (err) return reject(err);
         resolve(results);
       });

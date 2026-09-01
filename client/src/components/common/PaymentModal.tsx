@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { formatMiles } from "../../utils/utils";
+import {
+  buscarFacturasParaNC,
+  type FacturaParaNC,
+} from "../../services/venta.service";
 
 interface PaymentModalProps {
   show: boolean;
@@ -26,8 +30,8 @@ interface PaymentModalProps {
   setVentaNroPOS: (v: string) => void;
   documentoTipo: "FA" | "NC";
   setDocumentoTipo: (v: "FA" | "NC") => void;
-  ncFacturaAsociada: string;
-  setNcFacturaAsociada: (v: string) => void;
+  ncVentaAsociada: FacturaParaNC | null;
+  setNcVentaAsociada: (v: FacturaParaNC | null) => void;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -55,13 +59,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   setVentaNroPOS,
   documentoTipo,
   setDocumentoTipo,
-  ncFacturaAsociada,
-  setNcFacturaAsociada,
+  ncVentaAsociada,
+  setNcVentaAsociada,
 }) => {
   const [pagoTipo, setPagoTipoLocal] = useState<
     "E" | "B" | "D" | "CR" | "C" | "V"
   >("E");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Buscador de la factura asociada a la NC (por número o cliente).
+  const [ncBusqueda, setNcBusqueda] = useState("");
+  const [ncResultados, setNcResultados] = useState<FacturaParaNC[]>([]);
+  const [ncBuscando, setNcBuscando] = useState(false);
 
   const pagoConTarjeta = bancoDebito > 0 || bancoCredito > 0;
   const ventaNroPOSValido =
@@ -69,8 +78,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     (ventaNroPOS.trim().length >= 4 && /^\d+$/.test(ventaNroPOS.trim()));
 
   // La NC debe referenciar la factura que afecta (exigido por la RG 90).
-  const ncAsociadaValida =
-    documentoTipo !== "NC" || /^\d+$/.test(ncFacturaAsociada.trim());
+  const ncAsociadaValida = documentoTipo !== "NC" || ncVentaAsociada !== null;
+
+  // Búsqueda con debounce de facturas emitidas para asociar a la NC.
+  useEffect(() => {
+    if (!show || documentoTipo !== "NC" || ncVentaAsociada) {
+      setNcResultados([]);
+      return;
+    }
+    const term = ncBusqueda.trim();
+    if (!term) {
+      setNcResultados([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setNcBuscando(true);
+      try {
+        setNcResultados(await buscarFacturasParaNC(term));
+      } catch {
+        setNcResultados([]);
+      } finally {
+        setNcBuscando(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [show, documentoTipo, ncBusqueda, ncVentaAsociada]);
 
   useEffect(() => {
     if (show) {
@@ -80,7 +112,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setBancoCredito(0);
       setCuentaCliente(0);
       setVentaNroPOS("");
-      setNcFacturaAsociada("");
+      setNcVentaAsociada(null);
+      setNcBusqueda("");
       setTotalRest(totalCost);
       setTimeout(() => {
         const efectivoInput = document.getElementById("efectivo-input");
@@ -97,7 +130,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     setBancoCredito,
     setCuentaCliente,
     setVentaNroPOS,
-    setNcFacturaAsociada,
+    setNcVentaAsociada,
     setTotalRest,
     totalCost,
   ]);
@@ -531,26 +564,99 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     htmlFor="nc-factura-asociada"
                     className="mb-1 block text-sm font-semibold text-text-muted"
                   >
-                    N° de factura asociada
+                    Factura asociada
                   </label>
-                  <input
-                    id="nc-factura-asociada"
-                    type="text"
-                    inputMode="numeric"
-                    value={ncFacturaAsociada}
-                    onChange={(e) =>
-                      setNcFacturaAsociada(e.target.value.replace(/\D/g, ""))
-                    }
-                    placeholder="Número de la factura que afecta"
-                    className={`w-full rounded-lg border bg-surface-muted p-2.5 text-[15px] text-text focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 ${
-                      ncAsociadaValida ? "border-border" : "border-danger-700"
-                    }`}
-                  />
-                  {!ncAsociadaValida && (
-                    <p className="mt-1 text-xs text-danger-700">
-                      Requerido: la Nota de Crédito debe indicar la factura que
-                      afecta.
-                    </p>
+                  {ncVentaAsociada ? (
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-brand-700 bg-brand-50 px-3 py-2">
+                      <div className="min-w-0 text-sm text-text">
+                        <span className="font-semibold">
+                          {ncVentaAsociada.NroComprobante}
+                        </span>
+                        {ncVentaAsociada.Cliente && (
+                          <span className="text-text-muted">
+                            {" "}
+                            — {ncVentaAsociada.Cliente}
+                          </span>
+                        )}
+                        <span className="text-text-muted">
+                          {" "}
+                          — Gs. {formatMiles(ncVentaAsociada.Total)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNcVentaAsociada(null);
+                          setNcBusqueda("");
+                        }}
+                        className="shrink-0 cursor-pointer text-sm font-semibold text-brand-700 hover:text-brand-800"
+                      >
+                        Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        id="nc-factura-asociada"
+                        type="text"
+                        value={ncBusqueda}
+                        onChange={(e) => setNcBusqueda(e.target.value)}
+                        placeholder="Buscar por N° de factura o cliente"
+                        autoComplete="off"
+                        className={`w-full rounded-lg border bg-surface-muted p-2.5 text-[15px] text-text focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 ${
+                          ncAsociadaValida
+                            ? "border-border"
+                            : "border-danger-700"
+                        }`}
+                      />
+                      {ncBusqueda.trim() && (
+                        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-white shadow-lg">
+                          {ncBuscando && (
+                            <div className="px-3 py-2 text-sm text-text-muted">
+                              Buscando…
+                            </div>
+                          )}
+                          {!ncBuscando && ncResultados.length === 0 && (
+                            <div className="px-3 py-2 text-sm text-text-muted">
+                              No se encontraron facturas
+                            </div>
+                          )}
+                          {!ncBuscando &&
+                            ncResultados.map((f) => (
+                              <button
+                                key={f.VentaId}
+                                type="button"
+                                onClick={() => setNcVentaAsociada(f)}
+                                className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-text hover:bg-brand-50"
+                              >
+                                <span className="font-semibold">
+                                  {f.NroComprobante}
+                                </span>
+                                {f.Cliente && (
+                                  <span className="text-text-muted">
+                                    {" "}
+                                    — {f.Cliente}
+                                  </span>
+                                )}
+                                <span className="text-text-muted">
+                                  {" "}
+                                  — Gs. {formatMiles(f.Total)}
+                                </span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                      <p
+                        className={`mt-1 text-xs ${
+                          ncAsociadaValida
+                            ? "text-text-muted"
+                            : "text-danger-700"
+                        }`}
+                      >
+                        Requerido: seleccioná la factura que la Nota de Crédito
+                        afecta.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}

@@ -27,6 +27,11 @@ module.exports = {
   CONDICION_CONTADO: 1,
   CONDICION_CREDITO: 2,
 
+  // RUC del contribuyente informante SIN dígito verificador. Requerido sólo
+  // para el nombre del archivo CSV de importación a Marangatu
+  // (<RUC>_REG_MMAAAA_V0001).
+  RUC_INFORMANTE: (process.env.RG90_RUC || "").replace(/-.*$/, "").trim(),
+
   // Número de comprobante formato ###-###-#######: la BD guarda solo el
   // correlativo (VentaNroFactura); establecimiento y punto de expedición se
   // configuran por variables de entorno (RG90_ESTABLECIMIENTO / RG90_PUNTO).

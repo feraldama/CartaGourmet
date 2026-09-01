@@ -25,6 +25,16 @@ router.get(
   authMiddleware,
   ventaController.getReporteVentasRG90
 );
+router.get(
+  "/reporte-rg90-csv",
+  authMiddleware,
+  ventaController.getReporteVentasRG90Csv
+);
+router.get(
+  "/facturas-para-nc",
+  authMiddleware,
+  ventaController.buscarFacturasParaNC
+);
 router.post("/confirmar", authMiddleware, ventaController.confirmar);
 router.post("/devolucion", authMiddleware, ventaController.devolucion);
 router.get("/search", authMiddleware, ventaController.searchVentas);

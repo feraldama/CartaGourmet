@@ -414,11 +414,17 @@ exports.confirmar = async (req, res) => {
   // del rango activo del tipo correspondiente (no se reciben del cliente).
   const documentoTipo = req.body && req.body.VentaDocumentoTipo === "NC" ? "NC" : "FA";
 
-  // NC: número de la factura que la nota de crédito afecta. El registro de
-  // comprobantes de la RG 90 exige informar comprobante y timbrado asociados
-  // para las NC, así que se resuelve a un VentaId dentro de la transacción.
+  // NC: referencia a la factura que la nota de crédito afecta (exigida por el
+  // registro de comprobantes de la RG 90). Puede venir como VentaIdAsociada
+  // (selección exacta desde el buscador del punto de venta) o, como respaldo,
+  // por número de comprobante (VentaNroFacturaAsociada); ambas se validan
+  // dentro de la transacción.
+  const ventaIdAsociadaIn =
+    documentoTipo === "NC" && req.body.VentaIdAsociada
+      ? Number(req.body.VentaIdAsociada)
+      : null;
   const nroFacturaAsociada =
-    documentoTipo === "NC" && req.body.VentaNroFacturaAsociada
+    documentoTipo === "NC" && !ventaIdAsociadaIn && req.body.VentaNroFacturaAsociada
       ? Number(req.body.VentaNroFacturaAsociada)
       : null;
 
@@ -451,6 +457,14 @@ exports.confirmar = async (req, res) => {
   const conn = await db.promise().getConnection();
   try {
     await conn.beginTransaction();
+
+    // 0. Serializa la numeración entre ventas concurrentes: tanto VentaId como
+    // el correlativo legal se asignan con MAX+1, y en READ COMMITTED dos
+    // transacciones simultáneas leerían el mismo máximo. El lock se libera
+    // automáticamente al commit/rollback.
+    await conn.query(
+      "SELECT pg_advisory_xact_lock(hashtext('venta-confirmar'))"
+    );
 
     // 1. Próximo VentaId (la tabla no es SERIAL; replica MAX+1 del GX).
     const [maxRows] = await conn.query(
@@ -500,11 +514,23 @@ exports.confirmar = async (req, res) => {
       );
     }
 
-    // 1c. NC: resolver la factura asociada por su número de comprobante (la
-    // más reciente con ese correlativo, por si el número se repitió en
-    // timbrados anteriores).
+    // 1c. NC: resolver/validar la factura asociada. Por VentaId (selección
+    // exacta del buscador) o por número de comprobante (la más reciente con
+    // ese correlativo, por si el número se repitió en timbrados anteriores).
     let ventaIdAsociada = null;
-    if (nroFacturaAsociada) {
+    if (ventaIdAsociadaIn) {
+      const [asocRows] = await conn.query(
+        `SELECT VentaId FROM venta
+         WHERE VentaId = ? AND VentaDocumentoTipo = 'FA'`,
+        [ventaIdAsociadaIn]
+      );
+      if (!asocRows.length) {
+        throw new Error(
+          "La factura seleccionada para asociar a la Nota de Crédito no existe"
+        );
+      }
+      ventaIdAsociada = asocRows[0].VentaId;
+    } else if (nroFacturaAsociada) {
       const [asocRows] = await conn.query(
         `SELECT VentaId FROM venta
          WHERE VentaNroFactura = ? AND VentaDocumentoTipo = 'FA'
@@ -964,31 +990,144 @@ exports.getReporteVentasPorCliente = async (req, res) => {
   }
 };
 
-// Libro de ventas RG 90: genera la planilla oficial (hoja VENTAS) con las
-// ventas del rango de fechas, sobre la plantilla en assets/rg90-template.xlsx.
+// ============================ Libro de ventas RG 90 ========================
 // Formatos según la especificación técnica de Marangatu: fecha dd/mm/aaaa,
 // comprobante ###-###-#######, montos enteros y Total = 10% + 5% + exento.
-exports.getReporteVentasRG90 = async (req, res) => {
-  const { fechaDesde, fechaHasta } = req.query;
 
+// Valida el rango de fechas del reporte; si es inválido responde 400 y
+// devuelve false.
+function validarRangoRG90(req, res) {
+  const { fechaDesde, fechaHasta } = req.query;
   if (!fechaDesde || !fechaHasta) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Las fechas desde y hasta son requeridas",
     });
+    return false;
   }
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(fechaDesde) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(fechaHasta)
   ) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: "Formato de fecha inválido (se espera YYYY-MM-DD)",
     });
+    return false;
   }
+  if (fechaDesde > fechaHasta) {
+    res.status(400).json({
+      success: false,
+      message: "La fecha desde no puede ser mayor a la fecha hasta",
+    });
+    return false;
+  }
+  return true;
+}
+
+// Convierte las ventas del rango (Venta.getVentasRG90) a filas de 19 columnas
+// del registro de VENTAS de la RG 90. Compartido por la planilla Excel y el
+// CSV de importación a Marangatu.
+function construirFilasRG90(ventas) {
+  const formatFecha = (fecha) => {
+    const d = fecha instanceof Date ? fecha : new Date(fecha);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  };
+
+  return ventas.map((venta) => {
+    const total = Math.round(Number(venta.Total) || 0);
+    let gravado10 = Math.round(Number(venta.Gravado10) || 0);
+    let gravado5 = Math.round(Number(venta.Gravado5) || 0);
+    let exento = Math.round(Number(venta.Exento) || 0);
+
+    // Ventas sin desglose de IVA en sus líneas (productos sin ProductoIVA
+    // cargado): se asume la tasa por defecto (10%, la general del rubro).
+    if (gravado10 === 0 && gravado5 === 0) {
+      if (RG90.IVA_POR_DEFECTO === 10) {
+        gravado10 = total;
+        exento = 0;
+      } else if (RG90.IVA_POR_DEFECTO === 5) {
+        gravado5 = total;
+        exento = 0;
+      } else {
+        exento = total;
+      }
+    }
+
+    // La SET exige Total = 10% + 5% + exento. Diferencias de redondeo o de
+    // precios de combo se ajustan contra el bucket más grande.
+    const diff = total - (gravado10 + gravado5 + exento);
+    if (diff !== 0) {
+      if (gravado10 >= gravado5 && gravado10 >= exento) gravado10 += diff;
+      else if (gravado5 >= exento) gravado5 += diff;
+      else exento += diff;
+      if (gravado10 < 0 || gravado5 < 0 || exento < 0) {
+        // Ajuste imposible sin negativos: todo el comprobante a la tasa
+        // por defecto.
+        gravado10 = RG90.IVA_POR_DEFECTO === 10 ? total : 0;
+        gravado5 = RG90.IVA_POR_DEFECTO === 5 ? total : 0;
+        exento = gravado10 === 0 && gravado5 === 0 ? total : 0;
+      }
+    }
+
+    // Comprador: se toma como documento sólo si tiene formato válido (dígitos
+    // con DV opcional); placeholders tipo "SIN RUC" van como SIN NOMBRE (15).
+    // El tipo (RUC=11 / CI=12) sale de clientes.ClienteDocumentoTipo.
+    const docCrudo = (venta.ClienteRUC || "").trim();
+    const documento = /^\d{1,8}(-?\d)?$/.test(docCrudo) ? docCrudo : "";
+    const nombreCliente = `${venta.ClienteNombre || ""} ${
+      venta.ClienteApellido || ""
+    }`.trim();
+    const esNC = venta.VentaDocumentoTipo === "NC";
+
+    let tipoIdentificacion = RG90.IDENTIFICACION_SIN_NOMBRE;
+    if (documento) {
+      tipoIdentificacion =
+        venta.ClienteDocumentoTipo === "CI"
+          ? RG90.IDENTIFICACION_CEDULA
+          : RG90.IDENTIFICACION_RUC;
+    }
+
+    return [
+      RG90.TIPO_REGISTRO_VENTAS, // 1  código tipo de registro
+      tipoIdentificacion, // 2  tipo identificación comprador
+      documento || RG90.SIN_NOMBRE_NUMERO, // 3  número identificación
+      documento ? nombreCliente : RG90.SIN_NOMBRE_RAZON_SOCIAL, // 4  nombre
+      RG90.COMPROBANTE_POR_DOCUMENTO_TIPO[venta.VentaDocumentoTipo] ||
+        RG90.COMPROBANTE_POR_DOCUMENTO_TIPO.FA, // 5  tipo comprobante
+      formatFecha(venta.VentaFecha), // 6  fecha emisión
+      Number(venta.VentaTimbrado) || 0, // 7  timbrado
+      RG90.formatNroComprobante(venta.VentaNroFactura), // 8  nro comprobante
+      gravado10, // 9  gravado 10%
+      gravado5, // 10 gravado 5%
+      exento, // 11 no gravado/exento
+      total, // 12 total
+      venta.VentaTipo === "CR"
+        ? RG90.CONDICION_CREDITO
+        : RG90.CONDICION_CONTADO, // 13 condición de venta
+      "N", // 14 moneda extranjera
+      RG90.IMPUTA_IVA, // 15 imputa IVA
+      RG90.IMPUTA_IRE, // 16 imputa IRE
+      RG90.IMPUTA_IRP, // 17 imputa IRP-RSP
+      esNC && venta.NroFacturaAsociada
+        ? RG90.formatNroComprobante(venta.NroFacturaAsociada)
+        : "", // 18 comprobante asociado (NC)
+      esNC && venta.NroFacturaAsociada
+        ? Number(venta.TimbradoAsociado) || 0
+        : "", // 19 timbrado asociado (NC)
+    ];
+  });
+}
+
+// Planilla Excel oficial (hoja VENTAS) sobre assets/rg90-template.xlsx.
+exports.getReporteVentasRG90 = async (req, res) => {
+  if (!validarRangoRG90(req, res)) return;
+  const { fechaDesde, fechaHasta } = req.query;
 
   try {
     const ventas = await Venta.getVentasRG90(fechaDesde, fechaHasta);
+    const filas = construirFilasRG90(ventas);
 
     // Carga diferida: exceljs es pesado y sólo se usa en este reporte.
     const ExcelJS = require("exceljs");
@@ -1006,99 +1145,19 @@ exports.getReporteVentasRG90 = async (req, res) => {
 
     // Si el rango trae más ventas que filas pre-formateadas, se duplican filas
     // (con estilo incluido) a partir de la última de la plantilla.
-    if (ventas.length > FILAS_PREFORMATEADAS) {
+    if (filas.length > FILAS_PREFORMATEADAS) {
       sheet.duplicateRow(
         FILA_INICIO + FILAS_PREFORMATEADAS - 1,
-        ventas.length - FILAS_PREFORMATEADAS,
+        filas.length - FILAS_PREFORMATEADAS,
         true
       );
     }
 
-    const formatFecha = (fecha) => {
-      const d = fecha instanceof Date ? fecha : new Date(fecha);
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-    };
-
-    ventas.forEach((venta, i) => {
+    filas.forEach((valores, i) => {
       const row = sheet.getRow(FILA_INICIO + i);
-
-      const total = Math.round(Number(venta.Total) || 0);
-      let gravado10 = Math.round(Number(venta.Gravado10) || 0);
-      let gravado5 = Math.round(Number(venta.Gravado5) || 0);
-      let exento = Math.round(Number(venta.Exento) || 0);
-
-      // Ventas sin desglose de IVA en sus líneas (productos sin ProductoIVA
-      // cargado): se asume la tasa por defecto (10%, la general del rubro).
-      if (gravado10 === 0 && gravado5 === 0) {
-        if (RG90.IVA_POR_DEFECTO === 10) {
-          gravado10 = total;
-          exento = 0;
-        } else if (RG90.IVA_POR_DEFECTO === 5) {
-          gravado5 = total;
-          exento = 0;
-        } else {
-          exento = total;
-        }
-      }
-
-      // La SET exige Total = 10% + 5% + exento. Diferencias de redondeo o de
-      // precios de combo se ajustan contra el bucket más grande.
-      const diff = total - (gravado10 + gravado5 + exento);
-      if (diff !== 0) {
-        if (gravado10 >= gravado5 && gravado10 >= exento) gravado10 += diff;
-        else if (gravado5 >= exento) gravado5 += diff;
-        else exento += diff;
-        if (gravado10 < 0 || gravado5 < 0 || exento < 0) {
-          // Ajuste imposible sin negativos: todo el comprobante a la tasa
-          // por defecto.
-          gravado10 = RG90.IVA_POR_DEFECTO === 10 ? total : 0;
-          gravado5 = RG90.IVA_POR_DEFECTO === 5 ? total : 0;
-          exento = gravado10 === 0 && gravado5 === 0 ? total : 0;
-        }
-      }
-
-      // Comprador: se toma como RUC sólo si tiene formato de RUC (dígitos con
-      // DV opcional); placeholders tipo "SIN RUC" van como SIN NOMBRE (15).
-      const rucCrudo = (venta.ClienteRUC || "").trim();
-      const ruc = /^\d{1,8}(-?\d)?$/.test(rucCrudo) ? rucCrudo : "";
-      const nombreCliente = `${venta.ClienteNombre || ""} ${
-        venta.ClienteApellido || ""
-      }`.trim();
-      const esNC = venta.VentaDocumentoTipo === "NC";
-
-      row.getCell(1).value = RG90.TIPO_REGISTRO_VENTAS;
-      row.getCell(2).value = ruc
-        ? RG90.IDENTIFICACION_RUC
-        : RG90.IDENTIFICACION_SIN_NOMBRE;
-      row.getCell(3).value = ruc || RG90.SIN_NOMBRE_NUMERO;
-      row.getCell(4).value = ruc
-        ? nombreCliente
-        : RG90.SIN_NOMBRE_RAZON_SOCIAL;
-      row.getCell(5).value =
-        RG90.COMPROBANTE_POR_DOCUMENTO_TIPO[venta.VentaDocumentoTipo] ||
-        RG90.COMPROBANTE_POR_DOCUMENTO_TIPO.FA;
-      row.getCell(6).value = formatFecha(venta.VentaFecha);
-      row.getCell(7).value = Number(venta.VentaTimbrado) || 0;
-      row.getCell(8).value = RG90.formatNroComprobante(venta.VentaNroFactura);
-      row.getCell(9).value = gravado10;
-      row.getCell(10).value = gravado5;
-      row.getCell(11).value = exento;
-      row.getCell(12).value = total;
-      row.getCell(13).value =
-        venta.VentaTipo === "CR"
-          ? RG90.CONDICION_CREDITO
-          : RG90.CONDICION_CONTADO;
-      row.getCell(14).value = "N";
-      row.getCell(15).value = RG90.IMPUTA_IVA;
-      row.getCell(16).value = RG90.IMPUTA_IRE;
-      row.getCell(17).value = RG90.IMPUTA_IRP;
-      if (esNC && venta.NroFacturaAsociada) {
-        row.getCell(18).value = RG90.formatNroComprobante(
-          venta.NroFacturaAsociada
-        );
-        row.getCell(19).value = Number(venta.TimbradoAsociado) || 0;
-      }
+      valores.forEach((valor, col) => {
+        if (valor !== "") row.getCell(col + 1).value = valor;
+      });
       row.commit();
     });
 
@@ -1116,6 +1175,95 @@ exports.getReporteVentasRG90 = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al generar el libro de ventas RG 90",
+    });
+  }
+};
+
+// CSV de importación a Marangatu: mismas 19 columnas, en un ZIP con el nombre
+// que exige la SET (<RUC>_REG_MMAAAA_V0001.zip, período = mes de fechaDesde).
+// Sin fila de encabezados: Marangatu valida cada línea como datos.
+exports.getReporteVentasRG90Csv = async (req, res) => {
+  if (!validarRangoRG90(req, res)) return;
+  const { fechaDesde, fechaHasta } = req.query;
+
+  if (!/^\d{1,8}$/.test(RG90.RUC_INFORMANTE)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Configurá RG90_RUC en el .env del backend (RUC de la empresa sin dígito verificador) para generar el CSV de Marangatu",
+    });
+  }
+
+  try {
+    const ventas = await Venta.getVentasRG90(fechaDesde, fechaHasta);
+    const filas = construirFilasRG90(ventas);
+
+    // Campos de texto sin comas ni saltos de línea: el CSV de Marangatu es
+    // delimitado por comas simples, sin soporte confiable de comillas.
+    const csv = filas
+      .map((valores) =>
+        valores
+          .map((v) =>
+            typeof v === "string" ? v.replace(/[,\r\n]+/g, " ").trim() : v
+          )
+          .join(",")
+      )
+      .join("\r\n");
+
+    // Nombre según spec: <RUC>_REG_MMAAAA_XXXXX (obligación 955, mensual).
+    // El período se toma del mes de fechaDesde.
+    const [anho, mes] = fechaDesde.split("-");
+    const base = `${RG90.RUC_INFORMANTE}_REG_${mes}${anho}_V0001`;
+
+    const JSZip = require("jszip");
+    const zip = new JSZip();
+    zip.file(`${base}.csv`, csv, { binary: false });
+    const buffer = await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+    });
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${base}.zip"`
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("Error al generar CSV RG 90:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al generar el CSV de Marangatu",
+    });
+  }
+};
+
+// Facturas emitidas (FA) para asociar a una Nota de Crédito desde el punto de
+// venta: busca por número de comprobante o cliente, las más recientes primero.
+exports.buscarFacturasParaNC = async (req, res) => {
+  const term = String(req.query.term || "").trim();
+  if (!term) {
+    return res.json({ success: true, data: [] });
+  }
+  try {
+    const facturas = await Venta.buscarFacturasEmitidas(term, 10);
+    res.json({
+      success: true,
+      data: facturas.map((f) => ({
+        VentaId: f.VentaId,
+        VentaNroFactura: f.VentaNroFactura,
+        VentaTimbrado: f.VentaTimbrado,
+        NroComprobante: RG90.formatNroComprobante(f.VentaNroFactura),
+        VentaFecha: f.VentaFecha,
+        Total: Number(f.Total) || 0,
+        Cliente: `${f.ClienteNombre || ""} ${f.ClienteApellido || ""}`.trim(),
+      })),
+    });
+  } catch (error) {
+    console.error("Error al buscar facturas para NC:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al buscar facturas",
     });
   }
 };

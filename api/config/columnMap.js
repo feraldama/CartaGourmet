@@ -110,6 +110,7 @@ module.exports = {
   "ventatimbrado": "VentaTimbrado",
   "ventadocumentotipo": "VentaDocumentoTipo",
   "ventaidasociada": "VentaIdAsociada",
+  "clientedocumentotipo": "ClienteDocumentoTipo",
   "total": "Total",
   "ventaentrega": "VentaEntrega",
   "ventanropos": "VentaNroPOS",
