@@ -19,6 +19,7 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
+    "node-cron": "^4.6.0",
     "pg": "^8.21.0"
   },
   "devDependencies": {
