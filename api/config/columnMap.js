@@ -109,6 +109,7 @@ module.exports = {
   "ventanrofactura": "VentaNroFactura",
   "ventatimbrado": "VentaTimbrado",
   "ventadocumentotipo": "VentaDocumentoTipo",
+  "ventaidasociada": "VentaIdAsociada",
   "total": "Total",
   "ventaentrega": "VentaEntrega",
   "ventanropos": "VentaNroPOS",

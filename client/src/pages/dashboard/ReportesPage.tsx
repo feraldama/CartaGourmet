@@ -15,6 +15,7 @@ import {
   getRegistrosDiariosCajaPorRango,
   type RegistroDiarioCajaRow,
 } from "../../services/registros.service";
+import { descargarLibroVentasRG90 } from "../../services/venta.service";
 
 interface DeudaCliente {
   ClienteId: number;
@@ -290,6 +291,14 @@ const ReportesPage: React.FC = () => {
     return primerDiaMes.toISOString().split("T")[0];
   });
   const [fechaHastaTop, setFechaHastaTop] = useState(() => getHoyISO());
+
+  // Estado del reporte "Libro de ventas RG 90"
+  const [fechaDesdeRG90, setFechaDesdeRG90] = useState(() => {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    return primerDiaMes.toISOString().split("T")[0];
+  });
+  const [fechaHastaRG90, setFechaHastaRG90] = useState(() => getHoyISO());
 
   // Cuál tarjeta de reporte está abierta en modal (slug del reporte) o null
   const [reporteActivo, setReporteActivo] = useState<string | null>(null);
@@ -1306,6 +1315,29 @@ const ReportesPage: React.FC = () => {
   };
 
   // Metadata de las tarjetas (para grid + abrir modal)
+  // Descarga la planilla oficial RG 90 (hoja VENTAS) con las ventas del rango.
+  const handleGenerarLibroRG90 = async () => {
+    if (!fechaDesdeRG90 || !fechaHastaRG90) {
+      setError("Seleccioná el rango de fechas");
+      return;
+    }
+    if (new Date(fechaDesdeRG90) > new Date(fechaHastaRG90)) {
+      setError("La fecha desde no puede ser mayor a la fecha hasta");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await descargarLibroVentasRG90(fechaDesdeRG90, fechaHastaRG90);
+      setReporteActivo(null);
+    } catch (err) {
+      const e = err as { message?: string };
+      setError(e?.message || "Error al generar el libro de ventas RG 90");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderCard = (
     titulo: string,
     descripcion: string,
@@ -1354,7 +1386,7 @@ const ReportesPage: React.FC = () => {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Ventas y stock
             </h2>
-            <span className="text-xs text-slate-400">5 reportes</span>
+            <span className="text-xs text-slate-400">6 reportes</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {renderCard(
@@ -1405,6 +1437,16 @@ const ReportesPage: React.FC = () => {
               () => {
                 setError(null);
                 setReporteActivo("masvendidos");
+              },
+            )}
+            {renderCard(
+              "Libro de ventas RG 90",
+              "Planilla oficial de la SET (Excel) con las ventas del período, lista para el registro de comprobantes.",
+              "📗",
+              "border-emerald-300",
+              () => {
+                setError(null);
+                setReporteActivo("rg90");
               },
             )}
           </div>
@@ -1680,6 +1722,7 @@ const ReportesPage: React.FC = () => {
                 {reporteActivo === "ventas" && "Ventas por cliente"}
                 {reporteActivo === "movimientos" && "Productos vendidos y comprados"}
                 {reporteActivo === "masvendidos" && "Productos más vendidos"}
+                {reporteActivo === "rg90" && "Libro de ventas RG 90"}
               </h3>
               <button
                 onClick={() => setReporteActivo(null)}
@@ -1819,6 +1862,49 @@ const ReportesPage: React.FC = () => {
                   className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
                 >
                   {loading ? "Generando…" : "Generar PDF"}
+                </button>
+              </div>
+            )}
+
+            {reporteActivo === "rg90" && (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-500">
+                  Genera la planilla oficial del registro de comprobantes
+                  (RG 90) con la hoja VENTAS cargada con las ventas del período
+                  seleccionado.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Desde
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaDesdeRG90}
+                      onChange={(e) => setFechaDesdeRG90(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Hasta
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaHastaRG90}
+                      onChange={(e) => setFechaHastaRG90(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerarLibroRG90}
+                  disabled={loading}
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2 rounded-md shadow-sm transition disabled:opacity-50"
+                >
+                  {loading ? "Generando…" : "Descargar Excel"}
                 </button>
               </div>
             )}

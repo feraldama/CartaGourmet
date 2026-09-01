@@ -20,6 +20,11 @@ router.get(
   authMiddleware,
   ventaController.getReporteVentasPorCliente
 );
+router.get(
+  "/reporte-rg90",
+  authMiddleware,
+  ventaController.getReporteVentasRG90
+);
 router.post("/confirmar", authMiddleware, ventaController.confirmar);
 router.post("/devolucion", authMiddleware, ventaController.devolucion);
 router.get("/search", authMiddleware, ventaController.searchVentas);

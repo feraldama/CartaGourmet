@@ -26,6 +26,8 @@ interface PaymentModalProps {
   setVentaNroPOS: (v: string) => void;
   documentoTipo: "FA" | "NC";
   setDocumentoTipo: (v: "FA" | "NC") => void;
+  ncFacturaAsociada: string;
+  setNcFacturaAsociada: (v: string) => void;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -53,6 +55,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   setVentaNroPOS,
   documentoTipo,
   setDocumentoTipo,
+  ncFacturaAsociada,
+  setNcFacturaAsociada,
 }) => {
   const [pagoTipo, setPagoTipoLocal] = useState<
     "E" | "B" | "D" | "CR" | "C" | "V"
@@ -64,6 +68,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     !pagoConTarjeta ||
     (ventaNroPOS.trim().length >= 4 && /^\d+$/.test(ventaNroPOS.trim()));
 
+  // La NC debe referenciar la factura que afecta (exigido por la RG 90).
+  const ncAsociadaValida =
+    documentoTipo !== "NC" || /^\d+$/.test(ncFacturaAsociada.trim());
+
   useEffect(() => {
     if (show) {
       setEfectivo(0);
@@ -72,6 +80,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setBancoCredito(0);
       setCuentaCliente(0);
       setVentaNroPOS("");
+      setNcFacturaAsociada("");
       setTotalRest(totalCost);
       setTimeout(() => {
         const efectivoInput = document.getElementById("efectivo-input");
@@ -88,6 +97,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     setBancoCredito,
     setCuentaCliente,
     setVentaNroPOS,
+    setNcFacturaAsociada,
     setTotalRest,
     totalCost,
   ]);
@@ -515,6 +525,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   );
                 })}
               </div>
+              {documentoTipo === "NC" && (
+                <div className="mt-2.5">
+                  <label
+                    htmlFor="nc-factura-asociada"
+                    className="mb-1 block text-sm font-semibold text-text-muted"
+                  >
+                    N° de factura asociada
+                  </label>
+                  <input
+                    id="nc-factura-asociada"
+                    type="text"
+                    inputMode="numeric"
+                    value={ncFacturaAsociada}
+                    onChange={(e) =>
+                      setNcFacturaAsociada(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Número de la factura que afecta"
+                    className={`w-full rounded-lg border bg-surface-muted p-2.5 text-[15px] text-text focus:ring-2 focus:ring-brand-600/30 focus:border-brand-700 ${
+                      ncAsociadaValida ? "border-border" : "border-danger-700"
+                    }`}
+                  />
+                  {!ncAsociadaValida && (
+                    <p className="mt-1 text-xs text-danger-700">
+                      Requerido: la Nota de Crédito debe indicar la factura que
+                      afecta.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="mt-[18px] flex items-center gap-2">
               <input
@@ -563,12 +602,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
           <button
             className={`px-8 py-2.5 rounded-lg font-bold text-lg text-white transition-colors duration-200 ${
-              isSubmitting || totalRest > 0 || !ventaNroPOSValido
+              isSubmitting || totalRest > 0 || !ventaNroPOSValido || !ncAsociadaValida
                 ? "bg-brand-300 cursor-not-allowed"
                 : "bg-brand-700 hover:bg-brand-800 cursor-pointer"
             }`}
             onClick={handleSendRequest}
-            disabled={isSubmitting || totalRest > 0 || !ventaNroPOSValido}
+            disabled={
+              isSubmitting || totalRest > 0 || !ventaNroPOSValido || !ncAsociadaValida
+            }
           >
             {documentoTipo === "NC" ? "Emitir N. Crédito" : "Facturar"}
           </button>

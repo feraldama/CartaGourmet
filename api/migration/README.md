@@ -47,3 +47,20 @@ Agrega:
 timbrado por tipo (uno `FA` y uno `NC`) con el rango `Desde/Hasta` que coincida
 con los formularios preimpresos. Si no hay timbrado del tipo elegido, la venta se
 rechaza con un mensaje claro.
+
+### `2026-09-01-venta-asociada.sql` — Factura asociada a la Nota de Crédito (RG 90)
+
+Agrega:
+
+- `venta.VentaIdAsociada` (`BIGINT`, nullable): `VentaId` de la factura que una
+  Nota de Crédito afecta. El registro de comprobantes de la RG 90 exige, para
+  las NC, informar número y timbrado del comprobante de venta asociado; ambos se
+  derivan de esta referencia. Las ventas existentes quedan en `NULL` (dato no
+  disponible para NC históricas).
+
+Usada por el reporte **Libro de ventas RG 90** (`GET /api/venta/reporte-rg90`),
+que llena la hoja VENTAS de la planilla oficial (`api/assets/rg90-template.xlsx`)
+con las ventas de un rango de fechas. El establecimiento y punto de expedición
+del número de comprobante (`###-###-#######`) y las marcas de imputación se
+configuran por entorno: `RG90_ESTABLECIMIENTO`, `RG90_PUNTO`, `RG90_IMPUTA_IVA`,
+`RG90_IMPUTA_IRE`, `RG90_IMPUTA_IRP` (ver `api/config/rg90.js`).

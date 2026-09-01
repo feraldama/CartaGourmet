@@ -541,6 +541,53 @@ const Venta = {
     });
   },
 
+  // Ventas del rango con los datos que pide el registro de comprobantes de la
+  // RG 90 (hoja VENTAS): comprador, comprobante, y montos desglosados por tasa
+  // de IVA (el desglose sale de las líneas de ventaproducto según el
+  // ProductoIVA de cada producto; 10 / 5 / resto = exento).
+  getVentasRG90: (fechaDesde, fechaHasta) => {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT
+          v.VentaId,
+          v.VentaFecha,
+          v.VentaNroFactura,
+          v.VentaTimbrado,
+          v.VentaDocumentoTipo,
+          v.VentaTipo,
+          v.Total,
+          c.ClienteRUC,
+          c.ClienteNombre,
+          c.ClienteApellido,
+          va.VentaNroFactura AS NroFacturaAsociada,
+          va.VentaTimbrado AS TimbradoAsociado,
+          COALESCE(iva.gravado10, 0) AS Gravado10,
+          COALESCE(iva.gravado5, 0) AS Gravado5,
+          COALESCE(iva.exento, 0) AS Exento
+        FROM venta v
+        LEFT JOIN clientes c ON c.ClienteId = v.ClienteId
+        LEFT JOIN venta va ON va.VentaId = v.VentaIdAsociada
+        LEFT JOIN (
+          SELECT
+            vp.VentaId,
+            SUM(CASE WHEN p.ProductoIVA = 10 THEN vp.VentaProductoPrecioTotal ELSE 0 END) AS gravado10,
+            SUM(CASE WHEN p.ProductoIVA = 5 THEN vp.VentaProductoPrecioTotal ELSE 0 END) AS gravado5,
+            SUM(CASE WHEN COALESCE(p.ProductoIVA, 0) NOT IN (10, 5) THEN vp.VentaProductoPrecioTotal ELSE 0 END) AS exento
+          FROM ventaproducto vp
+          LEFT JOIN producto p ON p.ProductoId = vp.ProductoId
+          GROUP BY vp.VentaId
+        ) iva ON iva.VentaId = v.VentaId
+        WHERE DATE(v.VentaFecha) BETWEEN ? AND ?
+        ORDER BY v.VentaFecha ASC, v.VentaId ASC
+      `;
+
+      db.query(query, [fechaDesde, fechaHasta], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+  },
+
   // Obtener reporte de ventas por cliente y rango de fechas
   // Si clienteId es "TODOS", devuelve ventas de todos los clientes
   getReporteVentasPorCliente: (clienteId, fechaDesde, fechaHasta) => {

@@ -273,6 +273,8 @@ export interface ConfirmarVentaPayload {
   UsuarioId: string;
   VentaPagoTipo: string;
   VentaDocumentoTipo?: "FA" | "NC";
+  /** NC: número de la factura que la nota de crédito afecta (requerido por RG 90). */
+  VentaNroFacturaAsociada?: number;
   VentaNroFactura?: number;
   VentaTimbrado?: number;
   VentaNroPOS?: string;
@@ -295,6 +297,41 @@ export const confirmarVenta = async (payload: ConfirmarVentaPayload) => {
     throw (
       axiosError.response?.data || { message: "Error al confirmar la venta" }
     );
+  }
+};
+
+// Descarga el libro de ventas RG 90 (planilla oficial de la SET) del rango de
+// fechas como archivo .xlsx y dispara el guardado en el navegador.
+export const descargarLibroVentasRG90 = async (
+  fechaDesde: string,
+  fechaHasta: string
+) => {
+  try {
+    const response = await api.get("/venta/reporte-rg90", {
+      params: { fechaDesde, fechaHasta },
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data as Blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `libro-ventas-rg90_${fechaDesde}_${fechaHasta}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    // El error viene como Blob por el responseType; se intenta leer el mensaje.
+    const axiosError = error as AxiosError<Blob>;
+    let message = "Error al generar el libro de ventas RG 90";
+    if (axiosError.response?.data instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await axiosError.response.data.text());
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        // se mantiene el mensaje genérico
+      }
+    }
+    throw { message };
   }
 };
 

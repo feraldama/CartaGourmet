@@ -115,6 +115,8 @@ export default function Sales() {
   // Tipo de comprobante a emitir/imprimir al confirmar la venta. Por defecto
   // Factura; se puede cambiar a Nota de crédito en el modal de pago.
   const [documentoTipo, setDocumentoTipo] = useState<DocumentoTipo>("FA");
+  // NC: número de la factura que la nota de crédito afecta (RG 90).
+  const [ncFacturaAsociada, setNcFacturaAsociada] = useState("");
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] =
@@ -590,6 +592,10 @@ export default function Sales() {
           UsuarioId: String(user?.id ?? ""),
           VentaPagoTipo: "E",
           VentaDocumentoTipo: documentoTipo,
+          VentaNroFacturaAsociada:
+            documentoTipo === "NC" && ncFacturaAsociada.trim()
+              ? Number(ncFacturaAsociada.trim())
+              : undefined,
           VentaNroPOS:
             bancoDebito > 0 || bancoCredito > 0
               ? ventaNroPOS.trim() || "0"
@@ -683,6 +689,7 @@ export default function Sales() {
     setShowModal(false);
     setIsDevolucion(false); // Resetear el checkbox de devolución
     setDocumentoTipo("FA"); // Volver a Factura por defecto para la próxima venta
+    setNcFacturaAsociada("");
   };
 
   const generateTicketPDF = async () => {
@@ -1346,6 +1353,8 @@ export default function Sales() {
         setVentaNroPOS={setVentaNroPOS}
         documentoTipo={documentoTipo}
         setDocumentoTipo={setDocumentoTipo}
+        ncFacturaAsociada={ncFacturaAsociada}
+        setNcFacturaAsociada={setNcFacturaAsociada}
       />
     </div>
   );
