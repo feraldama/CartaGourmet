@@ -42,7 +42,7 @@ interface VentaWithId extends Venta {
   id: number;
   AlmacenNombre?: string;
   Saldo?: number;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | null | undefined;
 }
 
 const VentasList = ({
@@ -294,6 +294,13 @@ const VentasList = ({
       label: "Comprobante",
       render: (venta: VentaWithId) =>
         venta.VentaDocumentoTipo === "NC" ? "Nota de Crédito" : "Factura",
+    },
+    {
+      key: "VentaNroFactura",
+      label: "Nro. Comprobante",
+      render: (venta: VentaWithId) =>
+        venta.NroComprobante ||
+        (venta.VentaNroFactura != null ? String(venta.VentaNroFactura) : "-"),
     },
     {
       key: "VentaNroPOS",

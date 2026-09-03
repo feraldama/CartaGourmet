@@ -9,6 +9,9 @@ export interface Venta {
   VentaTipo: "CO" | "CR" | "PO" | "TR";
   VentaDocumentoTipo?: "FA" | "NC";
   VentaNroFactura?: number;
+  // Numero de comprobante completo (EST-PUNTO-NNNNNNN) que arma el backend
+  // a partir del correlativo; null en ventas sin confirmar.
+  NroComprobante?: string | null;
   VentaTimbrado?: number;
   VentaPagoTipo: string;
   VentaNroPOS?: string | number;
@@ -387,6 +390,37 @@ export const buscarFacturasParaNC = async (
     const axiosError = error as AxiosError<{ message?: string }>;
     throw (
       axiosError.response?.data || { message: "Error al buscar facturas" }
+    );
+  }
+};
+
+// Próximo número de comprobante a emitir, con el rango del timbrado activo,
+// para mostrarlo (y poder cambiarlo) antes de confirmar la venta.
+export interface ProximoComprobante {
+  VentaDocumentoTipo: "FA" | "NC";
+  VentaTimbrado: number;
+  VentaNroFactura: number;
+  NroComprobante: string;
+  FacturaDesde: number;
+  FacturaHasta: number;
+  Establecimiento: string;
+  PuntoExpedicion: string;
+}
+
+export const getProximoComprobante = async (
+  documentoTipo: "FA" | "NC"
+): Promise<ProximoComprobante> => {
+  try {
+    const response = await api.get("/venta/proximo-comprobante", {
+      params: { documentoTipo },
+    });
+    return response.data?.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    throw (
+      axiosError.response?.data || {
+        message: "Error al obtener el próximo número de comprobante",
+      }
     );
   }
 };

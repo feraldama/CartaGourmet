@@ -22,6 +22,134 @@ function parseFecha(s) {
   throw new Error(`Fecha inválida: ${s}`);
 }
 
+// El listado guarda sólo el correlativo (VentaNroFactura); el número completo
+// EST-PUNTO-NNNNNNN se arma con la configuración RG 90 del entorno. Las ventas
+// aún no confirmadas no tienen correlativo: se devuelve null.
+function conNroComprobante(ventas) {
+  return ventas.map((v) => ({
+    ...v,
+    NroComprobante:
+      v.VentaNroFactura != null
+        ? RG90.formatNroComprobante(v.VentaNroFactura)
+        : null,
+  }));
+}
+
+// Resuelve el número legal del comprobante para un tipo (FA/NC): toma el rango
+// de timbrado activo (el de mayor FacturaHasta) y calcula el próximo correlativo
+// (MAX usado + 1, o FacturaDesde si es el primero). Si se pide un número puntual
+// (nroSolicitado) se valida que caiga en el rango y que no esté usado, para poder
+// retomar la numeración en otro punto del talonario sin duplicar.
+// `query` es una función async (sql, params) => [rows]: se le pasa la conexión de
+// la transacción al confirmar, o el pool para la consulta de sólo lectura.
+async function resolverNumeroComprobante(
+  query,
+  documentoTipo,
+  nroSolicitado = null
+) {
+  const esNC = documentoTipo === "NC";
+  const [rangoRows] = await query(
+    `SELECT FacturaTimbrado, FacturaDesde, FacturaHasta
+     FROM factura
+     WHERE FacturaDocumentoTipo = ?
+     ORDER BY FacturaHasta DESC
+     LIMIT 1`,
+    [documentoTipo]
+  );
+  if (!rangoRows.length) {
+    throw new Error(
+      esNC
+        ? "No hay timbrado configurado para Nota de Crédito"
+        : "No hay timbrado configurado para Factura"
+    );
+  }
+  const facturaTimbrado = Number(rangoRows[0].FacturaTimbrado);
+  const facturaDesde = Number(rangoRows[0].FacturaDesde);
+  const facturaHasta = Number(rangoRows[0].FacturaHasta);
+
+  const [usadoRows] = await query(
+    `SELECT COALESCE(MAX(VentaNroFactura), 0) AS m
+     FROM venta
+     WHERE VentaTimbrado = ? AND VentaDocumentoTipo = ?`,
+    [facturaTimbrado, documentoTipo]
+  );
+  const ultimoNro = Number(usadoRows[0].m);
+  // El correlativo nunca puede caer fuera del rango habilitado: si el timbrado
+  // todavía no tiene ventas (ultimoNro = 0) arranca en FacturaDesde, y si por
+  // datos previos el último usado quedó por debajo del rango, salta a
+  // FacturaDesde en vez de seguir numerando fuera del talonario.
+  const proximo = Math.max(ultimoNro + 1, facturaDesde);
+  const rango = { facturaTimbrado, facturaDesde, facturaHasta, proximo };
+
+  if (nroSolicitado == null) {
+    if (proximo > facturaHasta) {
+      throw new Error(
+        esNC
+          ? "Rango de timbrado de Nota de Crédito agotado, cargar nuevo timbrado"
+          : "Rango de timbrado de Factura agotado, cargar nuevo timbrado"
+      );
+    }
+    return { ...rango, ventaNroFactura: proximo };
+  }
+
+  const nro = Number(nroSolicitado);
+  if (!Number.isInteger(nro) || nro <= 0) {
+    throw new Error("El número de comprobante debe ser un entero positivo");
+  }
+  if (nro < facturaDesde || nro > facturaHasta) {
+    throw new Error(
+      `El número ${RG90.formatNroComprobante(nro)} está fuera del rango ` +
+        `habilitado del timbrado ${facturaTimbrado} ` +
+        `(${RG90.formatNroComprobante(facturaDesde)} a ` +
+        `${RG90.formatNroComprobante(facturaHasta)})`
+    );
+  }
+  const [dupRows] = await query(
+    `SELECT VentaId FROM venta
+     WHERE VentaTimbrado = ? AND VentaDocumentoTipo = ? AND VentaNroFactura = ?
+     LIMIT 1`,
+    [facturaTimbrado, documentoTipo, nro]
+  );
+  if (dupRows.length) {
+    throw new Error(
+      `El número ${RG90.formatNroComprobante(nro)} ya fue usado en la venta ` +
+        `#${dupRows[0].VentaId}`
+    );
+  }
+  return { ...rango, ventaNroFactura: nro };
+}
+
+// Próximo número de comprobante que tomaría una venta del tipo indicado, con el
+// rango del timbrado activo, para mostrarlo (y poder cambiarlo) en el punto de
+// venta antes de confirmar.
+exports.proximoComprobante = async (req, res) => {
+  const documentoTipo = req.query.documentoTipo === "NC" ? "NC" : "FA";
+  try {
+    const info = await resolverNumeroComprobante(
+      (sql, params) => db.promise().query(sql, params),
+      documentoTipo
+    );
+    res.json({
+      success: true,
+      data: {
+        VentaDocumentoTipo: documentoTipo,
+        VentaTimbrado: info.facturaTimbrado,
+        VentaNroFactura: info.ventaNroFactura,
+        NroComprobante: RG90.formatNroComprobante(info.ventaNroFactura),
+        FacturaDesde: info.facturaDesde,
+        FacturaHasta: info.facturaHasta,
+        Establecimiento: RG90.ESTABLECIMIENTO,
+        PuntoExpedicion: RG90.PUNTO_EXPEDICION,
+      },
+    });
+  } catch (error) {
+    // Falta de timbrado o rango agotado: es configuración faltante, no un error
+    // del request — se devuelve el mensaje para mostrarlo en el punto de venta.
+    console.error("Error al obtener el próximo comprobante:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 exports.getAll = async (req, res) => {
   try {
     const ventas = await Venta.getAll();
@@ -69,7 +197,7 @@ exports.getAllPaginated = async (req, res) => {
     );
 
     res.json({
-      data: result.ventas,
+      data: conNroComprobante(result.ventas),
       pagination: {
         totalItems: result.total,
         totalPages: Math.ceil(result.total / limit),
@@ -334,7 +462,7 @@ exports.searchVentas = async (req, res) => {
     );
 
     res.json({
-      data: result.ventas,
+      data: conNroComprobante(result.ventas),
       pagination: {
         totalItems: result.total,
         totalPages: Math.ceil(result.total / limit),
@@ -410,8 +538,9 @@ exports.confirmar = async (req, res) => {
   } = req.body || {};
 
   // Tipo de comprobante: FA (factura, por defecto) o NC (nota de crédito).
-  // El correlativo y el timbrado se asignan dentro de la transacción tomándolos
-  // del rango activo del tipo correspondiente (no se reciben del cliente).
+  // El timbrado siempre sale del rango activo del tipo correspondiente; el
+  // correlativo se asigna dentro de la transacción (próximo libre, o el número
+  // que haya elegido el usuario en VentaNroFactura).
   const documentoTipo = req.body && req.body.VentaDocumentoTipo === "NC" ? "NC" : "FA";
 
   // NC: referencia a la factura que la nota de crédito afecta (exigida por el
@@ -426,6 +555,15 @@ exports.confirmar = async (req, res) => {
   const nroFacturaAsociada =
     documentoTipo === "NC" && !ventaIdAsociadaIn && req.body.VentaNroFacturaAsociada
       ? Number(req.body.VentaNroFacturaAsociada)
+      : null;
+
+  // Número de comprobante puntual: normalmente lo asigna el sistema (MAX+1),
+  // pero el punto de venta puede mandarlo para retomar la numeración en otro
+  // punto del talonario (formularios anulados, salto de papel). Se valida
+  // contra el rango del timbrado dentro de la transacción.
+  const nroFacturaSolicitado =
+    req.body && req.body.VentaNroFactura
+      ? Number(req.body.VentaNroFactura)
       : null;
 
   // Todos los montos de pago caen en columnas BIGINT (Total, VentaEntrega,
@@ -472,47 +610,17 @@ exports.confirmar = async (req, res) => {
     );
     const ultorden = Number(maxRows[0].m) + 1;
 
-    // 1b. Numeración legal del comprobante según el tipo (FA/NC). Se toma el
-    // rango de timbrado activo del tipo (el de mayor FacturaHasta) y se asigna
-    // el próximo correlativo (MAX usado + 1, o FacturaDesde si es el primero).
-    // El papel es preimpreso: el número no se dibuja, sólo se registra para que
-    // la venta coincida con el formulario físico. Todo dentro de la transacción
+    // 1b. Numeración legal del comprobante según el tipo (FA/NC): rango de
+    // timbrado activo + próximo correlativo, o el número puntual pedido por el
+    // punto de venta (validado contra el rango y contra los ya emitidos). El
+    // papel es preimpreso: el número no se dibuja, sólo se registra para que la
+    // venta coincida con el formulario físico. Todo dentro de la transacción
     // para que dos ventas concurrentes no tomen el mismo número.
-    const [rangoRows] = await conn.query(
-      `SELECT FacturaTimbrado, FacturaDesde, FacturaHasta
-       FROM factura
-       WHERE FacturaDocumentoTipo = ?
-       ORDER BY FacturaHasta DESC
-       LIMIT 1`,
-      [documentoTipo]
+    const { facturaTimbrado, ventaNroFactura } = await resolverNumeroComprobante(
+      (sql, params) => conn.query(sql, params),
+      documentoTipo,
+      nroFacturaSolicitado
     );
-    if (!rangoRows.length) {
-      throw new Error(
-        documentoTipo === "NC"
-          ? "No hay timbrado configurado para Nota de Crédito"
-          : "No hay timbrado configurado para Factura"
-      );
-    }
-    const rango = rangoRows[0];
-    const facturaTimbrado = Number(rango.FacturaTimbrado);
-    const facturaDesde = Number(rango.FacturaDesde);
-    const facturaHasta = Number(rango.FacturaHasta);
-
-    const [usadoRows] = await conn.query(
-      `SELECT COALESCE(MAX(VentaNroFactura), 0) AS m
-       FROM venta
-       WHERE VentaTimbrado = ? AND VentaDocumentoTipo = ?`,
-      [facturaTimbrado, documentoTipo]
-    );
-    const ultimoNro = Number(usadoRows[0].m);
-    const ventaNroFactura = ultimoNro > 0 ? ultimoNro + 1 : facturaDesde;
-    if (ventaNroFactura > facturaHasta) {
-      throw new Error(
-        documentoTipo === "NC"
-          ? "Rango de timbrado de Nota de Crédito agotado, cargar nuevo timbrado"
-          : "Rango de timbrado de Factura agotado, cargar nuevo timbrado"
-      );
-    }
 
     // 1c. NC: resolver/validar la factura asociada. Por VentaId (selección
     // exacta del buscador) o por número de comprobante (la más reciente con

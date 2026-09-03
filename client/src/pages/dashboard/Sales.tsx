@@ -112,6 +112,11 @@ export default function Sales() {
   const [cuentaCliente, setCuentaCliente] = useState(0);
   const [voucher, setVoucher] = useState(0);
   const [ventaNroPOS, setVentaNroPOS] = useState("");
+  // N° de comprobante y fecha/hora de la venta: el modal de pago los precarga
+  // con el próximo número libre del timbrado y el momento actual, y quedan
+  // editables antes de confirmar.
+  const [ventaNroFactura, setVentaNroFactura] = useState("");
+  const [ventaFecha, setVentaFecha] = useState("");
   const [printTicket, setPrintTicket] = useState(false);
   // Tipo de comprobante a emitir/imprimir al confirmar la venta. Por defecto
   // Factura; se puede cambiar a Nota de crédito en el modal de pago.
@@ -572,10 +577,13 @@ export default function Sales() {
       `${pad(fechaAjustada.getDate())}T${pad(fechaAjustada.getHours())}:` +
       `${pad(fechaAjustada.getMinutes())}:${pad(fechaAjustada.getSeconds())}`;
 
+    // Fecha/hora elegida en el modal de pago; si no se tocó, la del momento.
+    const fechaVenta = ventaFecha || fechaIso;
+
     try {
       if (isDevolucionMode) {
         await devolverVenta({
-          VentaFecha: fechaIso,
+          VentaFecha: fechaVenta,
           AlmacenOrigenId: Number(user?.LocalId),
           CajaId: Number(cajaAperturada?.CajaId),
           UsuarioId: String(user?.id ?? ""),
@@ -588,7 +596,8 @@ export default function Sales() {
         });
       } else {
         const respuesta = await confirmarVenta({
-          VentaFecha: fechaIso,
+          VentaFecha: fechaVenta,
+          VentaNroFactura: Number(ventaNroFactura) || undefined,
           AlmacenOrigenId: Number(user?.LocalId),
           ClienteId: Number(clienteSeleccionado?.ClienteId),
           CajaId: Number(cajaAperturada?.CajaId),
@@ -629,7 +638,7 @@ export default function Sales() {
           await imprimirComprobanteVenta(
             Number(ventaCreada.VentaId),
             Number(ventaCreada.Total ?? total),
-            fechaIso,
+            fechaVenta,
             documentoTipo
           );
         }
@@ -671,12 +680,15 @@ export default function Sales() {
       });
     } catch (error) {
       console.error(error);
+      const err = error as { message?: string };
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: isDevolucionMode
-          ? "Error al realizar la devolución"
-          : "Error al realizar la venta",
+        text:
+          err?.message ||
+          (isDevolucionMode
+            ? "Error al realizar la devolución"
+            : "Error al realizar la venta"),
       });
     }
     // Limpiar estados de pago
@@ -1358,6 +1370,11 @@ export default function Sales() {
         setDocumentoTipo={setDocumentoTipo}
         ncVentaAsociada={ncVentaAsociada}
         setNcVentaAsociada={setNcVentaAsociada}
+        ventaNroFactura={ventaNroFactura}
+        setVentaNroFactura={setVentaNroFactura}
+        ventaFecha={ventaFecha}
+        setVentaFecha={setVentaFecha}
+        isDevolucion={isDevolucion}
       />
     </div>
   );

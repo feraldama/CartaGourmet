@@ -245,6 +245,7 @@ const Venta = {
         "VentaUsuario",
         "Total",
         "VentaEntrega",
+        "VentaNroFactura",
       ];
 
       const allowedSortOrders = ["ASC", "DESC"];
@@ -320,6 +321,7 @@ const Venta = {
         "VentaUsuario",
         "Total",
         "VentaEntrega",
+        "VentaNroFactura",
       ];
 
       const allowedSortOrders = ["ASC", "DESC"];

@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { formatMiles } from "../../utils/utils";
 import {
   buscarFacturasParaNC,
+  getProximoComprobante,
   type FacturaParaNC,
+  type ProximoComprobante,
 } from "../../services/venta.service";
 
 interface PaymentModalProps {
@@ -32,7 +34,26 @@ interface PaymentModalProps {
   setDocumentoTipo: (v: "FA" | "NC") => void;
   ncVentaAsociada: FacturaParaNC | null;
   setNcVentaAsociada: (v: FacturaParaNC | null) => void;
+  /** Correlativo del comprobante (sólo dígitos). Se precarga con el próximo libre. */
+  ventaNroFactura: string;
+  setVentaNroFactura: (v: string) => void;
+  /** Fecha/hora de la venta, "YYYY-MM-DDTHH:MM:SS". Se precarga con el momento actual. */
+  ventaFecha: string;
+  setVentaFecha: (v: string) => void;
+  /** En modo devolución no se emite comprobante: no se piden número ni fecha. */
+  isDevolucion?: boolean;
 }
+
+// Momento actual como "YYYY-MM-DDTHH:MM:SS" en hora local (no UTC): es el
+// formato que espera el endpoint de confirmación y el input datetime-local.
+const ahoraLocal = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+};
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
   show,
@@ -61,6 +82,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   setDocumentoTipo,
   ncVentaAsociada,
   setNcVentaAsociada,
+  ventaNroFactura,
+  setVentaNroFactura,
+  ventaFecha,
+  setVentaFecha,
+  isDevolucion = false,
 }) => {
   const [pagoTipo, setPagoTipoLocal] = useState<
     "E" | "B" | "D" | "CR" | "C" | "V"
@@ -79,6 +105,46 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   // La NC debe referenciar la factura que afecta (exigido por la RG 90).
   const ncAsociadaValida = documentoTipo !== "NC" || ncVentaAsociada !== null;
+
+  // Próximo comprobante libre del timbrado activo (y su rango) para precargar
+  // el número y validar lo que escriba el usuario.
+  const [proximo, setProximo] = useState<ProximoComprobante | null>(null);
+  const [comprobanteError, setComprobanteError] = useState("");
+
+  const nroFacturaNum = Number(ventaNroFactura);
+  const nroFacturaValido =
+    isDevolucion ||
+    (proximo !== null &&
+      /^\d+$/.test(ventaNroFactura.trim()) &&
+      nroFacturaNum >= proximo.FacturaDesde &&
+      nroFacturaNum <= proximo.FacturaHasta);
+  const nroFacturaEsSugerido =
+    proximo !== null && nroFacturaNum === proximo.VentaNroFactura;
+
+  // El número depende del tipo de comprobante (FA y NC llevan secuencias
+  // separadas), así que se recarga al abrir el modal y al cambiar de tipo.
+  useEffect(() => {
+    if (!show || isDevolucion) return;
+    let vigente = true;
+    getProximoComprobante(documentoTipo)
+      .then((data) => {
+        if (!vigente) return;
+        setProximo(data);
+        setComprobanteError("");
+        setVentaNroFactura(String(data.VentaNroFactura));
+      })
+      .catch((err: { message?: string }) => {
+        if (!vigente) return;
+        setProximo(null);
+        setVentaNroFactura("");
+        setComprobanteError(
+          err?.message || "No se pudo obtener el próximo número de comprobante"
+        );
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [show, isDevolucion, documentoTipo, setVentaNroFactura]);
 
   // Búsqueda con debounce de facturas emitidas para asociar a la NC.
   useEffect(() => {
@@ -114,6 +180,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setVentaNroPOS("");
       setNcVentaAsociada(null);
       setNcBusqueda("");
+      setVentaFecha(ahoraLocal());
       setTotalRest(totalCost);
       setTimeout(() => {
         const efectivoInput = document.getElementById("efectivo-input");
@@ -131,6 +198,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     setCuentaCliente,
     setVentaNroPOS,
     setNcVentaAsociada,
+    setVentaFecha,
     setTotalRest,
     totalCost,
   ]);
@@ -278,7 +346,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       e.key === "Enter" &&
       !isSubmitting &&
       totalRest <= 0 &&
-      ventaNroPOSValido
+      ventaNroPOSValido &&
+      nroFacturaValido
     ) {
       handleSendRequest();
     }
@@ -661,6 +730,98 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 </div>
               )}
             </div>
+            {/* N° de comprobante y fecha de la venta. El número se precarga
+                con el próximo libre del timbrado y se puede cambiar para
+                retomar la numeración en otro punto del talonario. */}
+            {!isDevolucion && (
+              <div className="mt-[18px]">
+                <label
+                  htmlFor="venta-nro-factura"
+                  className="mb-1 block text-sm font-semibold text-text-muted"
+                >
+                  N° de comprobante
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-num text-[15px] text-text-muted">
+                    {proximo
+                      ? `${proximo.Establecimiento}-${proximo.PuntoExpedicion}-`
+                      : "—"}
+                  </span>
+                  <input
+                    id="venta-nro-factura"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={7}
+                    disabled={!proximo}
+                    value={ventaNroFactura}
+                    onChange={(e) =>
+                      setVentaNroFactura(
+                        e.target.value.replace(/\D/g, "").slice(0, 7)
+                      )
+                    }
+                    className={`w-[110px] rounded-md bg-surface-muted px-2.5 py-1.5 text-right font-num text-base outline-none transition-colors focus:ring-2 focus:ring-brand-600/30 disabled:opacity-50 ${
+                      nroFacturaValido
+                        ? "border border-border"
+                        : "border-2 border-danger-500"
+                    }`}
+                  />
+                  {proximo && !nroFacturaEsSugerido && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVentaNroFactura(String(proximo.VentaNroFactura))
+                      }
+                      className="cursor-pointer text-sm font-semibold text-brand-700 hover:text-brand-800"
+                    >
+                      Restaurar
+                    </button>
+                  )}
+                </div>
+                {comprobanteError ? (
+                  <p className="mt-1 text-xs text-danger-700">
+                    {comprobanteError}
+                  </p>
+                ) : proximo ? (
+                  <p
+                    className={`mt-1 text-xs ${
+                      nroFacturaValido ? "text-text-muted" : "text-danger-700"
+                    }`}
+                  >
+                    Timbrado {proximo.VentaTimbrado} · habilitado del{" "}
+                    {String(proximo.FacturaDesde).padStart(7, "0")} al{" "}
+                    {String(proximo.FacturaHasta).padStart(7, "0")}
+                    {nroFacturaEsSugerido ? " · próximo libre" : ""}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Buscando el próximo número…
+                  </p>
+                )}
+                <label
+                  htmlFor="venta-fecha"
+                  className="mb-1 mt-2.5 block text-sm font-semibold text-text-muted"
+                >
+                  Fecha y hora de la venta
+                </label>
+                <input
+                  id="venta-fecha"
+                  type="datetime-local"
+                  step={1}
+                  value={ventaFecha}
+                  onChange={(e) =>
+                    setVentaFecha(
+                      e.target.value.length === 16
+                        ? `${e.target.value}:00`
+                        : e.target.value
+                    )
+                  }
+                  className="rounded-md border border-border bg-surface-muted px-2.5 py-1.5 font-num text-base outline-none transition-colors focus:ring-2 focus:ring-brand-600/30"
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  Se usa también para los movimientos de caja de esta venta.
+                </p>
+              </div>
+            )}
             <div className="mt-[18px] flex items-center gap-2">
               <input
                 type="checkbox"
@@ -708,13 +869,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
           <button
             className={`px-8 py-2.5 rounded-lg font-bold text-lg text-white transition-colors duration-200 ${
-              isSubmitting || totalRest > 0 || !ventaNroPOSValido || !ncAsociadaValida
+              isSubmitting ||
+              totalRest > 0 ||
+              !ventaNroPOSValido ||
+              !ncAsociadaValida ||
+              !nroFacturaValido
                 ? "bg-brand-300 cursor-not-allowed"
                 : "bg-brand-700 hover:bg-brand-800 cursor-pointer"
             }`}
             onClick={handleSendRequest}
             disabled={
-              isSubmitting || totalRest > 0 || !ventaNroPOSValido || !ncAsociadaValida
+              isSubmitting ||
+              totalRest > 0 ||
+              !ventaNroPOSValido ||
+              !ncAsociadaValida ||
+              !nroFacturaValido
             }
           >
             {documentoTipo === "NC" ? "Emitir N. Crédito" : "Facturar"}

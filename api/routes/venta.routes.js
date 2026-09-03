@@ -35,6 +35,11 @@ router.get(
   authMiddleware,
   ventaController.buscarFacturasParaNC
 );
+router.get(
+  "/proximo-comprobante",
+  authMiddleware,
+  ventaController.proximoComprobante
+);
 router.post("/confirmar", authMiddleware, ventaController.confirmar);
 router.post("/devolucion", authMiddleware, ventaController.devolucion);
 router.get("/search", authMiddleware, ventaController.searchVentas);
