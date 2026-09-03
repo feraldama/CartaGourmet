@@ -311,25 +311,6 @@ const Factura = {
     });
   },
 
-  getNextAvailableNumber: () => {
-    return new Promise((resolve, reject) => {
-      db.query(
-        "SELECT FacturaHasta FROM factura ORDER BY FacturaHasta DESC LIMIT 1",
-        (err, results) => {
-          if (err) return reject(err);
-          if (results.length === 0) {
-            // Si no hay facturas, empezar desde 1
-            resolve(1);
-          } else {
-            // Tomar el último número usado y sumar 1
-            const lastNumber = parseInt(results[0].FacturaHasta);
-            resolve(lastNumber + 1);
-          }
-        }
-      );
-    });
-  },
-
   getCurrentFactura: (numeroFactura) => {
     return new Promise((resolve, reject) => {
       db.query(

@@ -90,20 +90,6 @@ export const searchFacturas = async (
   }
 };
 
-export const getNextAvailableNumber = async () => {
-  try {
-    const response = await api.get("/factura/next-number");
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    throw (
-      axiosError.response?.data || {
-        message: "Error al obtener próximo número",
-      }
-    );
-  }
-};
-
 export const getCurrentFactura = async (numeroFactura: string | number) => {
   try {
     const response = await api.get(`/factura/current/${numeroFactura}`);

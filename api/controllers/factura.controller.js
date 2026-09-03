@@ -251,20 +251,6 @@ exports.deleteFactura = async (req, res) => {
   }
 };
 
-// getNextAvailableNumber
-exports.getNextAvailableNumber = async (req, res) => {
-  try {
-    const nextNumber = await Factura.getNextAvailableNumber();
-    res.json({
-      success: true,
-      data: { nextNumber },
-    });
-  } catch (error) {
-    console.error(error);
-    sendError(res, error, 500);
-  }
-};
-
 // getCurrentFactura
 exports.getCurrentFactura = async (req, res) => {
   try {

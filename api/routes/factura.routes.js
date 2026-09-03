@@ -18,11 +18,6 @@ router.delete("/:id", authMiddleware, facturaController.deleteFactura);
 
 // Rutas adicionales para funcionalidades específicas
 router.get(
-  "/next-number",
-  authMiddleware,
-  facturaController.getNextAvailableNumber
-);
-router.get(
   "/current/:numeroFactura",
   authMiddleware,
   facturaController.getCurrentFactura
